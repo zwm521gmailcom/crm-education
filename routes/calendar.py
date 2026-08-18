@@ -25,7 +25,7 @@ def _parse_date(s, default):
         return default
 
 
-@bp.route("/calendar")
+@bp.route("/calendar", strict_slashes=False)
 def view():
     """日历视图入口。通过 ?view=week|month + ?angle=course|student 切换。"""
     view_mode = request.args.get("view", "week")
