@@ -8,7 +8,8 @@
 </head>
 <body>
   <div class="layout">
-    <aside class="sidebar">
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar" id="appSidebar">
       <div class="brand">
         <span class="brand-logo">📚</span>
         <span class="brand-text">教培 CRM</span>
@@ -59,6 +60,7 @@
     </aside>
     <main class="main">
       <header class="topbar">
+        <button type="button" class="menu-toggle" id="menuToggle" aria-label="打开菜单">☰</button>
         <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
         <div class="topbar-actions">{% block topbar_actions %}{% endblock %}</div>
       </header>
@@ -76,5 +78,38 @@
       </div>
     </main>
   </div>
+  <script>
+    (function() {
+      var toggle   = document.getElementById('menuToggle');
+      var sidebar  = document.getElementById('appSidebar');
+      var backdrop = document.getElementById('sidebarBackdrop');
+      if (!toggle || !sidebar) return;
+
+      function open() {
+        sidebar.classList.add('is-open');
+        backdrop && backdrop.classList.add('is-open');
+      }
+      function close() {
+        sidebar.classList.remove('is-open');
+        backdrop && backdrop.classList.remove('is-open');
+      }
+      toggle.addEventListener('click', function() {
+        sidebar.classList.contains('is-open') ? close() : open();
+      });
+      backdrop && backdrop.addEventListener('click', close);
+      // 点菜单后自动关闭(手机体验)
+      sidebar.querySelectorAll('.nav-item').forEach(function(a) {
+        a.addEventListener('click', close);
+      });
+      // ESC 关闭
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') close();
+      });
+      // 窗口拉大到桌面时强制关闭抽屉
+      window.addEventListener('resize', function() {
+        if (window.innerWidth > 600) close();
+      });
+    })();
+  </script>
 </body>
 </html>
