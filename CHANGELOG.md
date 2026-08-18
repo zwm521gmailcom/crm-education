@@ -30,7 +30,7 @@
 
 ### 安全 / 隐私
 - 新增 `.gitignore` 严格排除 `instance/*.db` / `instance/backups/` / venv/ / `__pycache__`
-- GitHub commit history 清理:DEPLOY.md 中 14 处原 Windows 用户路径 `C:\Users\Nancy\...` 替换为占位符 `C:\Users\<USERNAME>\...`
+- GitHub commit history 清理:DEPLOY.md 中 14 处原 Windows 路径替换为占位符 `C:\Users\<USERNAME>\...`
 - 项目上线到公开仓库: <https://github.com/zwm521gmailcom/crm-education>
 
 ## [v1.0.0] - 2026-08-11(Windows 端初版)
