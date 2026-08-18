@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}退费记录 - 教培 CRM{% endblock %}
+{% block page_title %}退费记录{% endblock %}
+{% block topbar_actions %}
+<a class="btn btn-sm" href="{{ url_for('exports.refunds_xlsx') }}">📥 导出 Excel</a>
+<a class="btn btn-primary btn-sm" href="{{ url_for('refunds.create') }}">+ 新增退费</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  {% if refunds %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>单号</th><th>学员</th>
+        <th>关联报名</th><th>课程</th>
+        <th class="num">金额</th><th>方式</th>
+        <th>原因</th><th>时间</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in refunds %}
+      <tr>
+        <td class="muted">{{ r.code }}</td>
+        <td><a href="{{ url_for('students.detail', sid=r.student_id) }}">{{ r.student.name }}</a></td>
+        <td><a href="{{ url_for('enrollments.detail', eid=r.enrollment_id) }}">{{ r.enrollment.code }}</a></td>
+        <td>{{ r.enrollment.course.name }}</td>
+        <td class="num money-neg">¥{{ r.amount | money }}</td>
+        <td>{{ r.method_label }}</td>
+        <td>{{ r.reason or '-' }}</td>
+        <td>{{ r.refunded_at | dt }}</td>
+        <td>
+          <form method="post" action="{{ url_for('refunds.delete', rid=r.id) }}" style="display:inline" onsubmit="return confirm('删除该退费会回滚报名和学员状态,确认?')">
+            <button class="btn btn-sm btn-danger" type="submit">删除</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">还没有退费记录</div>
+  {% endif %}
+</div>
+{% endblock %}

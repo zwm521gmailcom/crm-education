@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑' if mode == 'edit' else '新增' }}学员 - 教培 CRM{% endblock %}
+{% block page_title %}{{ '编辑' if mode == 'edit' else '新增' }}学员{% endblock %}
+
+{% block content %}
+<div class="card">
+  <form method="post">
+    <div class="form-grid">
+      <div class="form-field">
+        <label>学员编号 <span class="muted">(留空自动生成)</span></label>
+        <input type="text" name="code" value="{{ student.code if student else '' }}">
+      </div>
+      <div class="form-field">
+        <label>姓名 <span class="req">*</span></label>
+        <input type="text" name="name" required value="{{ student.name if student else '' }}">
+      </div>
+      <div class="form-field">
+        <label>性别</label>
+        <select name="gender">
+          <option value="unknown" {% if student and student.gender == 'unknown' %}selected{% endif %}>未知</option>
+          <option value="male" {% if student and student.gender == 'male' %}selected{% endif %}>男</option>
+          <option value="female" {% if student and student.gender == 'female' %}selected{% endif %}>女</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>出生日期</label>
+        <input type="date" name="birth_date" value="{{ student.birth_date | date if student and student.birth_date else '' }}">
+      </div>
+      <div class="form-field">
+        <label>身份证号</label>
+        <input type="text" name="id_card" value="{{ student.id_card if student else '' }}">
+      </div>
+      <div class="form-field">
+        <label>在读学校</label>
+        <input type="text" name="school" value="{{ student.school if student else '' }}">
+      </div>
+      <div class="form-field">
+        <label>年级</label>
+        <input type="text" name="grade" value="{{ student.grade if student else '' }}">
+      </div>
+      <div class="form-field">
+        <label>本人电话</label>
+        <input type="text" name="phone" value="{{ student.phone if student else '' }}">
+      </div>
+      <div class="form-field full">
+        <label>家庭地址</label>
+        <input type="text" name="address" value="{{ student.address if student else '' }}">
+      </div>
+      <div class="form-field">
+        <label>入学日期</label>
+        <input type="date" name="enrollment_date" value="{{ student.enrollment_date | date if student and student.enrollment_date else '' }}">
+      </div>
+      <div class="form-field">
+        <label>状态</label>
+        <select name="status">
+          <option value="active" {% if not student or student.status == 'active' %}selected{% endif %}>在读</option>
+          <option value="suspended" {% if student and student.status == 'suspended' %}selected{% endif %}>休学</option>
+          <option value="graduated" {% if student and student.status == 'graduated' %}selected{% endif %}>结业</option>
+          <option value="refunded" {% if student and student.status == 'refunded' %}selected{% endif %}>已退费</option>
+        </select>
+      </div>
+      <div class="form-field full">
+        <label>备注</label>
+        <textarea name="notes">{{ student.notes if student else '' }}</textarea>
+      </div>
+    </div>
+
+    {% if mode == 'new' %}
+    <hr>
+    <h3 style="margin:0 0 12px;font-size:14px;color:var(--gray-700)">主联系人(可选)</h3>
+    <div class="form-grid">
+      <div class="form-field">
+        <label>联系人姓名</label>
+        <input type="text" name="contact_name">
+      </div>
+      <div class="form-field">
+        <label>关系</label>
+        <select name="contact_relationship">
+          <option>父亲</option><option>母亲</option>
+          <option>爷爷</option><option>奶奶</option>
+          <option>外祖父</option><option>外祖母</option>
+          <option>监护人</option><option>其他</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>联系人电话</label>
+        <input type="text" name="contact_phone">
+      </div>
+      <div class="form-field">
+        <label>联系人微信</label>
+        <input type="text" name="contact_wechat">
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">保存</button>
+      <a class="btn" href="{{ url_for('students.list_view') }}">取消</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

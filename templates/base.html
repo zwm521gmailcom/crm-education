@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}教培 CRM{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-logo">📚</span>
+        <span class="brand-text">教培 CRM</span>
+      </div>
+      <nav class="nav">
+        <a href="{{ url_for('dashboard.index') }}" class="nav-item {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+          <span>🏠</span> 仪表盘
+        </a>
+        <div class="nav-group">学员</div>
+        <a href="{{ url_for('students.list_view') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('students.') %}active{% endif %}">
+          <span>👨‍🎓</span> 学员管理
+        </a>
+        <a href="{{ url_for('enrollments.list_view') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('enrollments.') %}active{% endif %}">
+          <span>📝</span> 报名记录
+        </a>
+        <div class="nav-group">课程</div>
+        <a href="{{ url_for('courses.list_view') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('courses.') %}active{% endif %}">
+          <span>📖</span> 课程管理
+        </a>
+        <a href="{{ url_for('schedules.list_view') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('schedules.') %}active{% endif %}">
+          <span>🗓️</span> 排期与考勤
+        </a>
+        <div class="nav-group">财务</div>
+        <a href="{{ url_for('payments.list_view') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('payments.') %}active{% endif %}">
+          <span>💰</span> 收款记录
+        </a>
+        <a href="{{ url_for('refunds.list_view') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('refunds.') %}active{% endif %}">
+          <span>↩️</span> 退费记录
+        </a>
+        <div class="nav-group">报表</div>
+        <a href="{{ url_for('reports.consumed') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('reports.') %}active{% endif %}">
+          <span>📊</span> 消课数据汇总
+        </a>
+        <div class="nav-group">系统</div>
+        <a href="{{ url_for('admin.backup') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('admin.') %}active{% endif %}">
+          <span>💾</span> 数据备份/恢复
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        {% if current_user %}
+        <div style="margin-bottom:8px">👤 {{ current_user.display_name or current_user.username }}</div>
+        <a class="btn btn-sm" style="width:100%;justify-content:center" href="{{ url_for('auth.logout') }}">退出登录</a>
+        {% else %}
+        <a class="btn btn-sm" style="width:100%;justify-content:center" href="{{ url_for('auth.login') }}">登录</a>
+        {% endif %}
+        <div style="margin-top:8px;font-size:11px;color:#6b7280">v1.1 · 本地单机版</div>
+      </div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
+        <div class="topbar-actions">{% block topbar_actions %}{% endblock %}</div>
+      </header>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flashes">
+            {% for cat, msg in messages %}
+              <div class="flash flash-{{ cat }}">{{ msg }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+      <div class="content">
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+</body>
+</html>

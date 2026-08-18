@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}{{ course.name }} - 课程详情{% endblock %}
+{% block page_title %}课程详情{% endblock %}
+{% block topbar_actions %}
+<a class="btn btn-sm" href="{{ url_for('schedules.create') }}?course_id={{ course.id }}">+ 新排期</a>
+<a class="btn btn-sm" href="{{ url_for('courses.edit', cid=course.id) }}">编辑</a>
+{% endblock %}
+
+{% block content %}
+
+{# ---- 课程财务汇总卡 ---- #}
+<div class="card" style="background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%); border-color: var(--primary)">
+  <div class="card-title">
+    <span>📊 课程汇总</span>
+    <span class="muted" style="font-size:12px">跨所有报名学员累加</span>
+  </div>
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:16px; padding:8px 0">
+    <div>
+      <div class="muted" style="font-size:12px">应收总额</div>
+      <div style="font-size:20px; font-weight:600; color:var(--gray-900)">¥{{ '%.2f'|format(summary.total) }}</div>
+    </div>
+    <div>
+      <div class="muted" style="font-size:12px">已收款</div>
+      <div style="font-size:20px; font-weight:600; color:#16a34a">¥{{ '%.2f'|format(summary.paid) }}</div>
+    </div>
+    <div>
+      <div class="muted" style="font-size:12px">未结金额</div>
+      <div style="font-size:20px; font-weight:600; color:{{ '#dc2626' if summary.unsettled > 0 else '#9ca3af' }}">
+        ¥{{ '%.2f'|format(summary.unsettled) }}
+      </div>
+    </div>
+    <div>
+      <div class="muted" style="font-size:12px">已退费</div>
+      <div style="font-size:20px; font-weight:600; color:#9ca3af">¥{{ '%.2f'|format(summary.refunded) }}</div>
+    </div>
+    <div>
+      <div class="muted" style="font-size:12px">报名订单 / 学员数</div>
+      <div style="font-size:20px; font-weight:600">{{ summary.enrollment_cnt }} 单 / {{ summary.student_cnt }} 人</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">
+    <span>📖 基本信息</span>
+    <span class="badge badge-{% if course.status == 'active' %}success{% else %}info{% endif %}">
+      {{ course.status_label }}
+    </span>
+  </div>
+  <dl class="detail-grid">
+    <dt>课程编号</dt><dd>{{ course.code }}</dd>
+    <dt>课程名</dt><dd><strong>{{ course.name }}</strong></dd>
+    <dt>学科</dt><dd>{{ course.subject or '-' }}</dd>
+    <dt>适用年级</dt><dd>{{ course.grade_level or '-' }}</dd>
+    <dt>班型</dt><dd>{{ course.class_type }}</dd>
+    <dt>默认课时包</dt><dd>{{ course.default_hours }} 课时</dd>
+    <dt>单价</dt><dd>¥{{ course.unit_price | money }} / 课时</dd>
+    <dt>默认总价</dt><dd>¥{{ course.default_total_price | money }}</dd>
+    <dt>默认老师</dt><dd>{{ course.default_teacher or '-' }}</dd>
+    {% if course.description %}
+    <dt>描述</dt><dd>{{ course.description }}</dd>
+    {% endif %}
+  </dl>
+</div>
+
+<div class="card">
+  <div class="card-title">
+    <span>📝 报名学员({{ enrollments|length }})</span>
+    <a class="btn btn-sm" href="{{ url_for('enrollments.create') }}?course_id={{ course.id }}">+ 新报名</a>
+  </div>
+  {% if enrollments %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>订单号</th><th>学员</th>
+        <th class="num">总/已用/剩</th>
+        <th class="num">金额</th>
+        <th>状态</th><th>报名日期</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in enrollments %}
+      <tr>
+        <td class="muted">{{ e.code }}</td>
+        <td><a href="{{ url_for('students.detail', sid=e.student_id) }}">{{ e.student.name }}</a></td>
+        <td class="num">{{ e.total_hours }} / {{ e.used_hours }} / <strong>{{ e.remaining_hours }}</strong></td>
+        <td class="num">¥{{ e.final_price | money }}</td>
+        <td>
+          {% if e.status == 'active' %}<span class="badge badge-success">{{ e.status_label }}</span>
+          {% elif e.status == 'refunded' %}<span class="badge badge-danger">{{ e.status_label }}</span>
+          {% else %}<span class="badge">{{ e.status_label }}</span>{% endif %}
+        </td>
+        <td>{{ e.enrolled_at | date }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">该课程还没有报名记录</div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-title">
+    <span>🗓️ 近期排期({{ schedules|length }})</span>
+    <a class="btn btn-sm" href="{{ url_for('schedules.list_view') }}?course_id={{ course.id }}">全部</a>
+  </div>
+  {% if schedules %}
+  <table class="table">
+    <thead>
+      <tr><th>开始时间</th><th>结束</th><th>老师</th><th>教室</th><th class="num">课时</th><th class="num">已上</th><th>状态</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for s in schedules %}
+      <tr>
+        <td><a href="{{ url_for('schedules.detail', sid=s.id) }}">{{ s.start_time | dt }}</a></td>
+        <td>{{ s.end_time | dt('%H:%M') }}</td>
+        <td>{{ s.teacher or '-' }}</td>
+        <td>{{ s.classroom or '-' }}</td>
+        <td class="num">{{ s.hours_per_session }}</td>
+        <td class="num">
+          {% set ac = s.attended_count %}
+          {% if ac == 0 %}<span class="muted">0</span>
+          {% elif ac >= s.max_students %}<strong>{{ ac }}</strong>
+          {% else %}{{ ac }}{% endif %}
+          / {{ s.max_students }}
+        </td>
+        <td>
+          {% if s.status == 'completed' %}<span class="badge badge-info">{{ s.status_label }}</span>
+          {% elif s.status == 'cancelled' %}<span class="badge badge-danger">{{ s.status_label }}</span>
+          {% else %}<span class="badge badge-success">{{ s.status_label }}</span>{% endif %}
+        </td>
+        <td><a class="btn btn-sm" href="{{ url_for('schedules.detail', sid=s.id) }}#attendance">查看出勤</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">还没有排期</div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <form method="post" action="{{ url_for('courses.delete', cid=course.id) }}" onsubmit="return confirm('确认删除该课程? (有报名记录时无法删除)')">
+    <button type="submit" class="btn btn-danger btn-sm">删除课程</button>
+  </form>
+</div>
+{% endblock %}

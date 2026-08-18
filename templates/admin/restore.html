@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}数据恢复 - 教培 CRM{% endblock %}
+{% block page_title %}数据恢复{% endblock %}
+
+{% block topbar_actions %}
+<a class="btn" href="{{ url_for('admin.backup') }}">📦 数据备份</a>
+{% endblock %}
+
+{% block content %}
+
+
+<div class="card" style="border-color:var(--danger)">
+  <div class="card-title" style="color:var(--danger)">⚠️ 风险提示</div>
+  <p style="margin:0 0 8px;font-size:13px;line-height:1.7">
+    <strong>数据恢复是不可逆操作</strong>。系统会把当前数据库整体替换成你选的备份,所有现有的学员/报名/收款/排期数据都会变成恢复源里的内容。
+  </p>
+  <p style="margin:0;font-size:13px;line-height:1.7">
+    系统会在恢复前自动创建一份 <code>crm_pre_restore_时间戳.db</code> 快照(放在备份列表里),万一发现恢复错了可以再"用快照恢复一次"。
+    <br>
+    <strong style="color:var(--danger)">建议先到"数据备份"页面手动备份一次,再回来这里恢复。</strong>
+  </p>
+</div>
+
+
+<div class="card">
+  <div class="card-title">当前数据库</div>
+  <dl class="detail-grid">
+    <dt>文件路径</dt>
+    <dd><code>{{ db_path }}</code></dd>
+    <dt>文件大小</dt>
+    <dd><strong>{{ db_size_text }}</strong></dd>
+    <dt>最后修改</dt>
+    <dd>{{ db_mtime | dt }}</dd>
+  </dl>
+</div>
+
+
+<div class="card">
+  <div class="card-title">从已有备份恢复</div>
+
+  {% if backups %}
+  <form method="post" action="{{ url_for('admin.restore_apply') }}">
+    <input type="hidden" name="source" value="backup">
+
+    <div class="form-field" style="margin-bottom:14px">
+      <label>选择备份文件 <span class="req">*</span></label>
+      <select name="selected_backup" required>
+        <option value="">-- 选择一个备份 --</option>
+        {% for b in backups %}
+          <option value="{{ b.name }}">{{ b.name }} ({{ b.size_text }} · {{ b.mtime | dt }})</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-field" style="margin-bottom:6px">
+      <label>二次确认 <span class="req">*</span></label>
+      <input type="text" name="confirm" placeholder='请输入大写 "RESTORE"' required>
+      <div class="muted" style="margin-top:4px">仅当输入字样为大写 <code>RESTORE</code> 时,系统才执行恢复</div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-danger">⏮ 恢复所选备份</button>
+      <a class="btn" href="{{ url_for('admin.backup') }}">取消</a>
+    </div>
+  </form>
+  {% else %}
+  <div class="empty">还没有任何备份文件。请用下面"上传外部备份"方式恢复。</div>
+  {% endif %}
+</div>
+
+
+<div class="card">
+  <div class="card-title">上传外部备份文件</div>
+
+  <form method="post" action="{{ url_for('admin.restore_apply') }}" enctype="multipart/form-data">
+    <input type="hidden" name="source" value="upload">
+
+    <div class="form-field" style="margin-bottom:14px">
+      <label>选择文件 <span class="req">*</span></label>
+      <input type="file" name="file" accept=".db,.sqlite,.sqlite3" required>
+      <div class="muted" style="margin-top:4px">支持 .db / .sqlite / .sqlite3,最大 100MB</div>
+    </div>
+
+    <div class="form-field" style="margin-bottom:6px">
+      <label>二次确认 <span class="req">*</span></label>
+      <input type="text" name="confirm" placeholder='请输入大写 "RESTORE"' required>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-danger">⏮ 恢复上传的文件</button>
+      <a class="btn" href="{{ url_for('admin.backup') }}">取消</a>
+    </div>
+  </form>
+</div>
+
+
+<div class="card">
+  <div class="card-title">文件校验</div>
+  <p class="muted" style="margin:0">
+    上传或选择的文件,系统会先做这几项检查:
+  </p>
+  <ul style="margin:8px 0 0;padding-left:20px;font-size:13px;line-height:1.7;color:var(--gray-700)">
+    <li>文件存在且大小合理</li>
+    <li>是有效的 SQLite 数据库(PRAGMA quick_check = ok)</li>
+    <li>包含 <code>students</code> 表(防止误传其它无关的 .db 文件)</li>
+    <li>如果校验不通过,会提示具体原因且<strong>不会</strong>改动当前数据库</li>
+  </ul>
+</div>
+
+{% endblock %}

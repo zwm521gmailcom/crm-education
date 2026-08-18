@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}课程管理 - 教培 CRM{% endblock %}
+{% block page_title %}课程管理{% endblock %}
+{% block topbar_actions %}
+<a class="btn btn-primary btn-sm" href="{{ url_for('courses.create') }}">+ 新增课程</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="filter-bar">
+    <form method="get">
+      <input type="text" name="q" value="{{ q }}" placeholder="搜索课程名/编号">
+      <select name="subject">
+        <option value="">全部学科</option>
+        {% for s in subjects %}
+        <option value="{{ s }}" {% if subject == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      <select name="status">
+        <option value="">全部状态</option>
+        <option value="active" {% if status == 'active' %}selected{% endif %}>上架</option>
+        <option value="archived" {% if status == 'archived' %}selected{% endif %}>下架</option>
+      </select>
+      <button class="btn btn-sm" type="submit">查询</button>
+    </form>
+  </div>
+
+  {% if courses %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>编号</th><th>课程名</th><th>学科</th><th>年级</th><th>班型</th>
+        <th class="num">默认课时</th><th class="num">单价</th><th>老师</th>
+        <th>状态</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in courses %}
+      <tr>
+        <td class="muted">{{ c.code }}</td>
+        <td><a href="{{ url_for('courses.detail', cid=c.id) }}"><strong>{{ c.name }}</strong></a></td>
+        <td>{{ c.subject or '-' }}</td>
+        <td>{{ c.grade_level or '-' }}</td>
+        <td>{{ c.class_type }}</td>
+        <td class="num">{{ c.default_hours }}</td>
+        <td class="num">¥{{ c.unit_price | money }}</td>
+        <td>{{ c.default_teacher or '-' }}</td>
+        <td>
+          {% if c.status == 'active' %}<span class="badge badge-success">{{ c.status_label }}</span>
+          {% else %}<span class="badge">{{ c.status_label }}</span>{% endif %}
+        </td>
+        <td><a class="btn btn-sm" href="{{ url_for('courses.edit', cid=c.id) }}">编辑</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">还没有课程,点击右上角"新增课程"开始吧</div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑' if mode == 'edit' else '新增' }}课程 - 教培 CRM{% endblock %}
+{% block page_title %}{{ '编辑' if mode == 'edit' else '新增' }}课程{% endblock %}
+
+{% block content %}
+<div class="card">
+  <form method="post">
+    <div class="form-grid">
+      <div class="form-field">
+        <label>课程编号 <span class="muted">(留空自动生成)</span></label>
+        <input type="text" name="code" value="{{ course.code if course else '' }}">
+      </div>
+      <div class="form-field">
+        <label>课程名 <span class="req">*</span></label>
+        <input type="text" name="name" required value="{{ course.name if course else '' }}">
+      </div>
+      <div class="form-field">
+        <label>学科</label>
+        <input type="text" name="subject" list="subject-list" value="{{ course.subject if course else '' }}" placeholder="如:数学、英语、语文">
+        <datalist id="subject-list">
+          <option value="数学"><option value="英语"><option value="语文">
+          <option value="物理"><option value="化学"><option value="生物">
+          <option value="历史"><option value="地理"><option value="政治">
+        </datalist>
+      </div>
+      <div class="form-field">
+        <label>适用年级</label>
+        <input type="text" name="grade_level" value="{{ course.grade_level if course else '' }}" placeholder="如:初一、初二、高一">
+      </div>
+      <div class="form-field">
+        <label>班型</label>
+        <select name="class_type">
+          <option {% if course and course.class_type == '一对一' %}selected{% endif %}>一对一</option>
+          <option {% if course and course.class_type == '小班' %}selected{% endif %}>小班</option>
+          <option {% if course and course.class_type == '大班' %}selected{% endif %}>大班</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>默认课时(课时包)</label>
+        <input type="number" name="default_hours" min="0" value="{{ course.default_hours if course else 0 }}">
+      </div>
+      <div class="form-field">
+        <label>单价(元/课时)</label>
+        <input type="number" step="0.01" min="0" name="unit_price" value="{{ course.unit_price if course else 0 }}">
+      </div>
+      <div class="form-field">
+        <label>默认老师</label>
+        <input type="text" name="default_teacher" value="{{ course.default_teacher if course else '' }}">
+      </div>
+      <div class="form-field">
+        <label>状态</label>
+        <select name="status">
+          <option value="active" {% if not course or course.status == 'active' %}selected{% endif %}>上架</option>
+          <option value="archived" {% if course and course.status == 'archived' %}selected{% endif %}>下架</option>
+        </select>
+      </div>
+      <div class="form-field full">
+        <label>课程描述</label>
+        <textarea name="description">{{ course.description if course else '' }}</textarea>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">保存</button>
+      <a class="btn" href="{{ url_for('courses.list_view') }}">取消</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+{% block title %}消课数据汇总 - 教培 CRM{% endblock %}
+{% block page_title %}消课数据汇总{% endblock %}
+{% block topbar_actions %}
+<a class="btn btn-sm" href="{{ url_for('reports.consumed_xlsx', granularity=granularity, start=start, end=end) }}">📥 导出 Excel</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="filter-bar">
+    <form method="get">
+      <label>开始
+        <input type="date" name="start" value="{{ start }}">
+      </label>
+      <label>结束
+        <input type="date" name="end" value="{{ end }}">
+      </label>
+      <span style="margin: 0 8px; color:#94a3b8">|</span>
+      {% for key, label in granularities %}
+        <a class="btn btn-sm {% if granularity == key %}btn-primary{% endif %}"
+           href="?start={{ start }}&end={{ end }}&granularity={{ key }}"
+           style="margin-right:4px">{{ label }}</a>
+      {% endfor %}
+      <button class="btn btn-sm" type="submit" style="margin-left:8px">查询</button>
+      <a class="btn btn-sm" href="?granularity={{ granularity }}" style="margin-left:4px">重置</a>
+    </form>
+  </div>
+
+  {% if rows %}
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:13px;color:#475569">
+    <span>📅 共 <strong>{{ rows | length }}</strong> 个分组</span>
+    <span>👥 上课人次: <strong>{{ totals.sessions }}</strong></span>
+    <span>🎓 学员数(累计): <strong>{{ totals.students }}</strong></span>
+    <span>⏱️ 消耗课时: <strong>{{ '%.1f' | format(totals.hours) }}</strong></span>
+    <span style="color:#7c3aed">💰 消耗金额: <strong>¥{{ totals.value | money }}</strong></span>
+  </div>
+  {% else %}
+  <div class="empty">所选范围内还没有消课数据</div>
+  {% endif %}
+</div>
+
+{% if rows %}
+{# 勾稽校验:三图共享同一份 rows 数据,合计必然一致 #}
+<div class="card" style="margin-top:12px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <h3 style="margin:0;font-size:14px">🔗 勾稽校验(三图合计 vs 表底合计)</h3>
+    <span id="recon-status" class="badge badge-success" style="font-size:12px">✓ 全部一致</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;font-size:13px">
+    <div style="background:#f8fafc;padding:8px 12px;border-radius:6px">
+      <div style="color:#64748b;font-size:12px">🥧 饼图(按课程)</div>
+      <div style="font-weight:600" id="pie-total">—</div>
+    </div>
+    <div style="background:#f8fafc;padding:8px 12px;border-radius:6px">
+      <div style="color:#64748b;font-size:12px">📊 柱状图(按周期)</div>
+      <div style="font-weight:600" id="bar-total">—</div>
+    </div>
+    <div style="background:#f8fafc;padding:8px 12px;border-radius:6px">
+      <div style="color:#64748b;font-size:12px">📈 曲线图(按周期)</div>
+      <div style="font-weight:600" id="line-total">—</div>
+    </div>
+    <div style="background:#f1f5f9;padding:8px 12px;border-radius:6px;border:1px solid #cbd5e1">
+      <div style="color:#475569;font-size:12px">📋 表底合计</div>
+      <div style="font-weight:600">{{ '%.1f' | format(totals.hours) }} 课时 / ¥{{ totals.value | money }}</div>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 2fr;gap:12px;margin-top:12px">
+  <div class="card" style="margin:0">
+    <h3 style="margin:0 0 8px;font-size:14px">🥧 课程消耗课时分布(饼图)</h3>
+    <div id="chart-pie" style="width:100%;height:320px"></div>
+  </div>
+  <div class="card" style="margin:0">
+    <h3 style="margin:0 0 8px;font-size:14px">📊 各周期消耗课时与金额(柱状图)</h3>
+    <div id="chart-bar" style="width:100%;height:320px"></div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:12px">
+  <h3 style="margin:0 0 8px;font-size:14px">📈 消耗课时与金额趋势(曲线图)</h3>
+  <div id="chart-line" style="width:100%;height:320px"></div>
+</div>
+
+<div class="card" style="margin-top:12px">
+  <h3 style="margin:0 0 8px;font-size:14px">📋 详细数据</h3>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>周期</th>
+        <th>课程名称</th>
+        <th>老师</th>
+        <th class="num">上课人次</th>
+        <th class="num">学员数</th>
+        <th class="num">消耗课时</th>
+        <th class="num">消耗金额</th>
+        <th class="num">平均单价(元/小时)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="muted">{{ r.label }}</td>
+        <td><strong>{{ r.course }}</strong></td>
+        <td>{{ r.teacher }}</td>
+        <td class="num">{{ r.sessions }}</td>
+        <td class="num">{{ r.students }}</td>
+        <td class="num">{{ '%.1f' | format(r.hours) }}</td>
+        <td class="num" style="color:#7c3aed">¥{{ r.value | money }}</td>
+        <td class="num muted">{{ '%.2f' | format(r.avg_price) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr style="background:#f1f5f9;font-weight:600">
+        <td colspan="3">合计</td>
+        <td class="num">{{ totals.sessions }}</td>
+        <td class="num">{{ totals.students }}</td>
+        <td class="num">{{ '%.1f' | format(totals.hours) }}</td>
+        <td class="num" style="color:#7c3aed">¥{{ totals.value | money }}</td>
+        <td class="num">
+          {{ '%.2f' | format(totals.value / totals.hours) if totals.hours > 0 else '0.00' }}
+        </td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<div class="card" style="margin-top:12px;font-size:12px;color:#64748b;line-height:1.7">
+  <strong style="color:#475569">勾稽说明:</strong><br>
+  • 饼图按课程汇总课时占比;柱状图/曲线图按周期汇总课时与金额<br>
+  • 三图来自同一份聚合数据(rows),饼图 Σ = 柱状图 Σ = 曲线图 Σ = 表底合计<br>
+  • 勾稽校验面板的"✓ 全部一致"标记即上方的统计值<br>
+  • 平均单价 = 该组消耗金额 ÷ 消耗课时(加权,反映该组实际单价)
+</div>
+
+{# 图表数据 + ECharts 渲染 #}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script>
+  (function() {
+    const data = {{ rows | tojson }};
+    const totals = {{ totals | tojson }};
+    const expectedHours = totals.hours;
+    const expectedValue = totals.value;
+    const granularity = {{ granularity | tojson }};
+
+    // 主题色板
+    const COLORS = ['#4f46e5','#7c3aed','#ec4899','#f59e0b','#10b981','#06b6d4','#3b82f6','#ef4444','#84cc16','#a855f7'];
+
+    // 工具:数值精度(避免 0.1+0.2 浮点尾巴)
+    function round2(n) { return Math.round(n * 100) / 100; }
+    function round1(n) { return Math.round(n * 10) / 10; }
+
+    // ---- 勾稽计算 ----
+    // 饼图:按 course 聚合 hours
+    const byCourse = {};
+    for (const r of data) byCourse[r.course] = (byCourse[r.course] || 0) + r.hours;
+    const pieTotal = Object.values(byCourse).reduce((a,b)=>a+b, 0);
+
+    // 柱状图 / 曲线图:同一份 rows(按 bucket 排序)
+    const byBucket = {};
+    for (const r of data) {
+      if (!byBucket[r.bucket]) byBucket[r.bucket] = { label: r.label, hours: 0, value: 0 };
+      byBucket[r.bucket].hours += r.hours;
+      byBucket[r.bucket].value += r.value;
+    }
+    const bucketKeys = Object.keys(byBucket).sort();  // 升序
+    const labels = bucketKeys.map(k => byBucket[k].label);
+    const hoursSeries = bucketKeys.map(k => round1(byBucket[k].hours));
+    const valueSeries = bucketKeys.map(k => round2(byBucket[k].value));
+    const barTotal = hoursSeries.reduce((a,b)=>a+b, 0);
+    const lineTotal = hoursSeries.reduce((a,b)=>a+b, 0);  // 同一份数据,合计必然相同
+
+    // 写入勾稽面板
+    document.getElementById('pie-total').textContent = round1(pieTotal) + ' 课时';
+    document.getElementById('bar-total').textContent = round1(barTotal) + ' 课时';
+    document.getElementById('line-total').textContent = round1(lineTotal) + ' 课时';
+
+    // 校验一致性(浮点容差 0.01)
+    const eps = 0.01;
+    const allMatch =
+      Math.abs(pieTotal - expectedHours) < eps &&
+      Math.abs(barTotal - expectedHours) < eps &&
+      Math.abs(lineTotal - expectedHours) < eps;
+    const statusEl = document.getElementById('recon-status');
+    if (allMatch) {
+      statusEl.textContent = '✓ 全部一致';
+      statusEl.className = 'badge badge-success';
+    } else {
+      statusEl.textContent = '⚠ 数据不一致';
+      statusEl.className = 'badge badge-danger';
+    }
+
+    // ---- 1. 饼图:按课程消耗课时 ----
+    const pieData = Object.entries(byCourse).map(([name, value]) => ({ name, value: round2(value) }));
+    const pieChart = echarts.init(document.getElementById('chart-pie'));
+    pieChart.setOption({
+      tooltip: {
+        trigger: 'item',
+        formatter: function(p) {
+          const pct = pieTotal > 0 ? (p.value / pieTotal * 100).toFixed(1) : '0';
+          return `${p.name}<br/>课时: <b>${round1(p.value)}</b> (${pct}%)`;
+        }
+      },
+      legend: { bottom: 0, type: 'scroll', textStyle: { fontSize: 12 } },
+      color: COLORS,
+      series: [{
+        type: 'pie',
+        radius: ['38%', '70%'],
+        center: ['50%', '45%'],
+        avoidLabelOverlap: true,
+        itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
+        label: { formatter: '{b}\n{d}%', fontSize: 11 },
+        labelLine: { length: 8, length2: 8 },
+        data: pieData
+      }]
+    });
+
+    // ---- 2. 柱状图:周期 × (课时 / 金额) ----
+    const barChart = echarts.init(document.getElementById('chart-bar'));
+    barChart.setOption({
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        formatter: function(params) {
+          let s = `<b>${params[0].axisValue}</b><br/>`;
+          params.forEach(p => {
+            const v = p.seriesName === '消耗金额' ? '¥' + p.value.toLocaleString() : p.value;
+            s += `${p.marker} ${p.seriesName}: <b>${v}</b><br/>`;
+          });
+          return s;
+        }
+      },
+      legend: { data: ['消耗课时', '消耗金额'], top: 0 },
+      grid: { left: 50, right: 60, top: 40, bottom: 50 },
+      xAxis: {
+        type: 'category',
+        data: labels,
+        axisLabel: { rotate: labels.length > 6 ? 30 : 0, fontSize: 11 }
+      },
+      yAxis: [
+        { type: 'value', name: '课时', position: 'left', axisLine: { lineStyle: { color: '#7c3aed' } } },
+        { type: 'value', name: '金额(元)', position: 'right', axisLine: { lineStyle: { color: '#4f46e5' } } }
+      ],
+      series: [
+        {
+          name: '消耗课时', type: 'bar', yAxisIndex: 0,
+          data: hoursSeries, itemStyle: { color: '#7c3aed' },
+          barGap: 0, barCategoryGap: '40%'
+        },
+        {
+          name: '消耗金额', type: 'bar', yAxisIndex: 1,
+          data: valueSeries, itemStyle: { color: '#4f46e5' }
+        }
+      ]
+    });
+
+    // ---- 3. 曲线图:周期 × 课时 + 金额(双 Y) ----
+    const lineChart = echarts.init(document.getElementById('chart-line'));
+    lineChart.setOption({
+      tooltip: {
+        trigger: 'axis',
+        formatter: function(params) {
+          let s = `<b>${params[0].axisValue}</b><br/>`;
+          params.forEach(p => {
+            const v = p.seriesName === '消耗金额' ? '¥' + Number(p.value).toLocaleString() : p.value;
+            s += `${p.marker} ${p.seriesName}: <b>${v}</b><br/>`;
+          });
+          return s;
+        }
+      },
+      legend: { data: ['消耗课时', '消耗金额'], top: 0 },
+      grid: { left: 50, right: 60, top: 40, bottom: 50 },
+      xAxis: { type: 'category', data: labels, boundaryGap: false, axisLabel: { rotate: labels.length > 6 ? 30 : 0, fontSize: 11 } },
+      yAxis: [
+        { type: 'value', name: '课时', position: 'left', axisLine: { lineStyle: { color: '#7c3aed' } } },
+        { type: 'value', name: '金额(元)', position: 'right', axisLine: { lineStyle: { color: '#4f46e5' } } }
+      ],
+      series: [
+        {
+          name: '消耗课时', type: 'line', yAxisIndex: 0, smooth: true,
+          data: hoursSeries, itemStyle: { color: '#7c3aed' },
+          lineStyle: { width: 3 }, symbol: 'circle', symbolSize: 8
+        },
+        {
+          name: '消耗金额', type: 'line', yAxisIndex: 1, smooth: true,
+          data: valueSeries, itemStyle: { color: '#4f46e5' },
+          lineStyle: { width: 3 }, symbol: 'circle', symbolSize: 8
+        }
+      ]
+    });
+
+    // 窗口 resize 时让三图跟着重排
+    window.addEventListener('resize', function() {
+      pieChart.resize();
+      barChart.resize();
+      lineChart.resize();
+    });
+  })();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}排期日历 - 教培 CRM{% endblock %}
+{% block page_title %}排期日历{% endblock %}
+{% block topbar_actions %}
+<a class="btn btn-sm" href="{{ url_for('schedules.list_view') }}">📋 列表视图</a>
+<a class="btn btn-sm" href="{{ url_for('calendar.view', view='month', angle=angle, year=today.year, month=today.month, course_id=course_id, teacher=teacher, student_id=student_id|default(0), attendance=attendance|default('')) }}">📅 月视图</a>
+<a class="btn btn-primary btn-sm" href="{{ url_for('schedules.create') }}">+ 新排期</a>
+{% endblock %}
+
+{% block content %}
+{# ---------- 视角 tab ---------- #}
+<div class="tabs" style="margin-bottom: 16px;">
+  <a class="tab {% if angle == 'course' %}active{% endif %}"
+     href="{{ url_for('calendar.view', view='week', angle='course', course_id=course_id, teacher=teacher) }}">
+     🗂️ 课程角度
+  </a>
+  <a class="tab {% if angle == 'student' %}active{% endif %}"
+     href="{{ url_for('calendar.view', view='week', angle='student', course_id=course_id, teacher=teacher, student_id=student_id|default(0), attendance=attendance|default('')) }}">
+     🧑‍🎓 学员角度
+  </a>
+</div>
+
+<div class="card">
+  <div class="cal-toolbar">
+    <div class="cal-nav">
+      <a class="btn btn-sm" href="{{ url_for('calendar.view', view='week', angle=angle, week=prev_week.isoformat(), course_id=course_id, teacher=teacher, student_id=student_id|default(0), attendance=attendance|default('')) }}">‹ 上周</a>
+      <a class="btn btn-sm" href="{{ url_for('calendar.view', view='week', angle=angle, course_id=course_id, teacher=teacher, student_id=student_id|default(0), attendance=attendance|default('')) }}">本周</a>
+      <a class="btn btn-sm" href="{{ url_for('calendar.view', view='week', angle=angle, week=next_week.isoformat(), course_id=course_id, teacher=teacher, student_id=student_id|default(0), attendance=attendance|default('')) }}">下周 ›</a>
+    </div>
+    <h2 class="cal-title">{{ week_start | date }} ~ {{ week_end | date }}</h2>
+    <form method="get" class="cal-filters">
+      <input type="hidden" name="view" value="week">
+      <input type="hidden" name="angle" value="{{ angle }}">
+      <select name="course_id" onchange="this.form.submit()">
+        <option value="">全部课程</option>
+        {% for c in courses %}
+        <option value="{{ c.id }}" {% if course_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="teacher" onchange="this.form.submit()">
+        <option value="">全部老师</option>
+        {% for t in teachers %}
+        <option value="{{ t }}" {% if teacher == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+      {% if angle == 'student' %}
+      <select name="student_id" onchange="this.form.submit()">
+        <option value="">全部学员</option>
+        {% for st in students %}
+        <option value="{{ st.id }}" {% if student_id == st.id %}selected{% endif %}>{{ st.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="attendance" onchange="this.form.submit()">
+        <option value="">全部出勤</option>
+        <option value="present" {% if attendance == 'present' %}selected{% endif %}>出勤</option>
+        <option value="makeup" {% if attendance == 'makeup' %}selected{% endif %}>补课</option>
+        <option value="absent" {% if attendance == 'absent' %}selected{% endif %}>缺席</option>
+        <option value="leave" {% if attendance == 'leave' %}selected{% endif %}>请假</option>
+      </select>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="cal-week">
+  {% for day in days %}
+    {% set items = by_day[day] %}
+    {% set is_today = day == today %}
+    <div class="cal-day {% if is_today %}cal-today{% endif %}">
+      <div class="cal-day-header">
+        <div class="cal-dow">{{ ['一','二','三','四','五','六','日'][loop.index0] }}</div>
+        <div class="cal-date">{{ day.strftime('%m-%d') }}</div>
+        {% if is_today %}<span class="cal-today-badge">今天</span>{% endif %}
+      </div>
+      <div class="cal-day-body">
+        {% if items %}
+          {% if angle == 'student' %}
+            {% for s, a, e, st in items %}
+            <a class="cal-event cal-att-{{ a.attendance }}" href="{{ url_for('students.detail', sid=st.id) }}">
+              <div class="cal-event-time">{{ s.start_time | dt('%H:%M') }} - {{ s.end_time | dt('%H:%M') }}</div>
+              <div class="cal-event-course">🧑‍🎓 {{ st.name }}</div>
+              <div class="cal-event-meta">
+                <span>📚 {{ s.course.name }}</span>
+                {% if s.teacher %}<span>👤 {{ s.teacher }}</span>{% endif %}
+              </div>
+              <div class="cal-event-foot">
+                <span class="badge badge-{% if a.attendance == 'present' %}success{% elif a.attendance == 'absent' %}danger{% elif a.attendance == 'makeup' %}info{% else %}warning{% endif %}">
+                  {{ a.attendance_label }}
+                </span>
+                {% if a.attendance in ('present','makeup') %}
+                  <span class="muted">扣 {{ a.hours_used }}h</span>
+                {% endif %}
+                <span class="badge badge-{% if s.status == 'completed' %}info{% elif s.status == 'cancelled' %}danger{% else %}success{% endif %}">{{ s.status_label }}</span>
+              </div>
+            </a>
+            {% endfor %}
+          {% else %}
+            {% for s in items %}
+            <a class="cal-event cal-status-{{ s.status }}" href="{{ url_for('schedules.detail', sid=s.id) }}">
+              <div class="cal-event-time">{{ s.start_time | dt('%H:%M') }} - {{ s.end_time | dt('%H:%M') }}</div>
+              <div class="cal-event-course">{{ s.course.name }}</div>
+              <div class="cal-event-meta">
+                {% if s.teacher %}<span>👤 {{ s.teacher }}</span>{% endif %}
+                {% if s.classroom %}<span>📍 {{ s.classroom }}</span>{% endif %}
+              </div>
+              <div class="cal-event-students">
+                {% set attended = s.attendances | selectattr('attendance', 'in', ['present','makeup']) | list %}
+                {% if attended %}
+                  👥 {{ attended | map(attribute='enrollment.student.name') | join('、') }}
+                {% else %}
+                  <span class="muted">未登记出勤</span>
+                {% endif %}
+              </div>
+              <div class="cal-event-foot">
+                <span class="badge badge-{% if s.status == 'completed' %}info{% elif s.status == 'cancelled' %}danger{% else %}success{% endif %}">{{ s.status_label }}</span>
+                <span class="muted">{{ s.hours_per_session }}h/人 · 已上 {{ s.attended_count }}</span>
+              </div>
+            </a>
+            {% endfor %}
+          {% endif %}
+        {% else %}
+          <div class="cal-empty">无{{ '出勤' if angle == 'student' else '排期' }}</div>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

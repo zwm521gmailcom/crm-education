@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}排期日历 - 教培 CRM{% endblock %}
+{% block page_title %}排期日历{% endblock %}
+{% block topbar_actions %}
+<a class="btn btn-sm" href="{{ url_for('calendar.view', view='week', angle=angle, course_id=course_id, teacher=teacher, student_id=student_id|default(0), attendance=attendance|default('')) }}">📋 周视图</a>
+<a class="btn btn-primary btn-sm" href="{{ url_for('schedules.create') }}">+ 新排期</a>
+{% endblock %}
+
+{% block content %}
+{# ---------- 视角 tab ---------- #}
+<div class="tabs" style="margin-bottom: 16px;">
+  <a class="tab {% if angle == 'course' %}active{% endif %}"
+     href="{{ url_for('calendar.view', view='month', angle='course', year=year, month=month, course_id=course_id, teacher=teacher) }}">
+     🗂️ 课程角度
+  </a>
+  <a class="tab {% if angle == 'student' %}active{% endif %}"
+     href="{{ url_for('calendar.view', view='month', angle='student', year=year, month=month, course_id=course_id, teacher=teacher, student_id=student_id|default(0), attendance=attendance|default('')) }}">
+     🧑‍🎓 学员角度
+  </a>
+</div>
+
+<div class="card">
+  <div class="cal-toolbar">
+    <div class="cal-nav">
+      <a class="btn btn-sm" href="{{ url_for('calendar.view', view='month', angle=angle, year=prev_y, month=prev_m, course_id=course_id, teacher=teacher, student_id=student_id|default(0), attendance=attendance|default('')) }}">‹ 上月</a>
+      <a class="btn btn-sm" href="{{ url_for('calendar.view', view='month', angle=angle, year=today.year, month=today.month, course_id=course_id, teacher=teacher, student_id=student_id|default(0), attendance=attendance|default('')) }}">本月</a>
+      <a class="btn btn-sm" href="{{ url_for('calendar.view', view='month', angle=angle, year=next_y, month=next_m, course_id=course_id, teacher=teacher, student_id=student_id|default(0), attendance=attendance|default('')) }}">下月 ›</a>
+    </div>
+    <h2 class="cal-title">{{ month_label }}</h2>
+    <form method="get" class="cal-filters">
+      <input type="hidden" name="view" value="month">
+      <input type="hidden" name="angle" value="{{ angle }}">
+      <input type="hidden" name="year" value="{{ year }}">
+      <input type="hidden" name="month" value="{{ month }}">
+      <select name="course_id" onchange="this.form.submit()">
+        <option value="">全部课程</option>
+        {% for c in courses %}
+        <option value="{{ c.id }}" {% if course_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="teacher" onchange="this.form.submit()">
+        <option value="">全部老师</option>
+        {% for t in teachers %}
+        <option value="{{ t }}" {% if teacher == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+      {% if angle == 'student' %}
+      <select name="student_id" onchange="this.form.submit()">
+        <option value="">全部学员</option>
+        {% for st in students %}
+        <option value="{{ st.id }}" {% if student_id == st.id %}selected{% endif %}>{{ st.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="attendance" onchange="this.form.submit()">
+        <option value="">全部出勤</option>
+        <option value="present" {% if attendance == 'present' %}selected{% endif %}>出勤</option>
+        <option value="makeup" {% if attendance == 'makeup' %}selected{% endif %}>补课</option>
+        <option value="absent" {% if attendance == 'absent' %}selected{% endif %}>缺席</option>
+        <option value="leave" {% if attendance == 'leave' %}selected{% endif %}>请假</option>
+      </select>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="cal-month">
+  <div class="cal-month-header">
+    {% for label in ['一','二','三','四','五','六','日'] %}
+    <div class="cal-month-dow">{{ label }}</div>
+    {% endfor %}
+  </div>
+  <div class="cal-month-grid">
+    {% for day in days %}
+      {% set in_month = (day >= first and day <= last) %}
+      {% set is_today = (day == today) %}
+      {% set items = by_day[day] %}
+      <div class="cal-month-cell {% if not in_month %}cal-month-out{% endif %} {% if is_today %}cal-month-today{% endif %}">
+        <div class="cal-month-cell-head">
+          <span class="cal-month-date">{{ day.day }}</span>
+          {% if items %}<span class="cal-month-count">{{ items|length }} {{ '人' if angle == 'student' else '节' }}</span>{% endif %}
+        </div>
+        <div class="cal-month-cell-body">
+          {% if angle == 'student' %}
+            {% for s, a, e, st in items %}
+            <a class="cal-month-event cal-att-{{ a.attendance }}{% if loop.index0 >= 4 %} cal-month-hidden{% endif %}"
+               href="{{ url_for('students.detail', sid=st.id) }}"
+               title="{{ st.name }} · {{ a.attendance_label }} · {{ s.course.name }}">
+              <span class="cal-month-time">{{ s.start_time | dt('%H:%M') }}~{{ s.end_time | dt('%H:%M') }}</span>
+              <span class="cal-month-name">{{ st.name }}</span>
+            </a>
+            {% endfor %}
+            {% if items|length > 4 %}
+            <div class="cal-month-more" onclick="toggleMonthMore(this)">+{{ items|length - 4 }} 更多</div>
+            {% endif %}
+          {% else %}
+            {% for s in items %}
+            <a class="cal-month-event cal-status-{{ s.status }}{% if loop.index0 >= 4 %} cal-month-hidden{% endif %}"
+               href="{{ url_for('schedules.detail', sid=s.id) }}"
+               title="{{ s.course.name }} - {{ s.teacher or '' }}">
+              <span class="cal-month-time">{{ s.start_time | dt('%H:%M') }}~{{ s.end_time | dt('%H:%M') }}</span>
+              <span class="cal-month-name">{{ s.course.name }}</span>
+            </a>
+            {% endfor %}
+            {% if items|length > 4 %}
+            <div class="cal-month-more" onclick="toggleMonthMore(this)">+{{ items|length - 4 }} 更多</div>
+            {% endif %}
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+function toggleMonthMore(el) {
+  const cell = el.closest('.cal-month-cell');
+  if (!cell) return;
+  const expanded = cell.classList.toggle('cal-month-expanded');
+  // 记录原始文案(首次点击),之后在 "收起" / "更多" 之间切换
+  if (!el.dataset.orig) el.dataset.orig = el.textContent;
+  el.textContent = expanded ? '收起 ▴' : el.dataset.orig;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}{{ e.code }} - 报名详情{% endblock %}
+{% block page_title %}报名详情{% endblock %}
+{% block topbar_actions %}
+<a class="btn btn-sm" href="{{ url_for('payments.create') }}?student_id={{ e.student_id }}&enrollment_id={{ e.id }}">+ 收款</a>
+{% if e.status == 'active' %}
+<a class="btn btn-sm" href="{{ url_for('refunds.create') }}?student_id={{ e.student_id }}&enrollment_id={{ e.id }}">+ 退费</a>
+{% endif %}
+<a class="btn btn-sm" href="{{ url_for('enrollments.edit', eid=e.id) }}">编辑</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-title">
+    <span>📝 报名信息</span>
+    <span class="badge badge-{% if e.status == 'active' %}success{% elif e.status == 'refunded' %}danger{% else %}info{% endif %}">
+      {{ e.status_label }}
+    </span>
+  </div>
+  <dl class="detail-grid">
+    <dt>订单号</dt><dd>{{ e.code }}</dd>
+    <dt>学员</dt><dd><a href="{{ url_for('students.detail', sid=e.student_id) }}">{{ e.student.name }}</a></dd>
+    <dt>课程</dt><dd><a href="{{ url_for('courses.detail', cid=e.course_id) }}">{{ e.course.name }}</a></dd>
+    <dt>购买课时</dt><dd>{{ e.total_hours }} 课时</dd>
+    <dt>已用 / 剩余</dt><dd>
+      <strong>{{ e.used_hours }}</strong> / <strong>{{ e.remaining_hours }}</strong> 课时
+      <div class="muted" style="background:var(--gray-100);height:6px;border-radius:3px;overflow:hidden;margin-top:6px;width:240px">
+        {% set pct = (e.used_hours / e.total_hours * 100) if e.total_hours else 0 %}
+        <div style="background:var(--primary-light);height:100%;width:{{ pct|round(0) }}%"></div>
+      </div>
+    </dd>
+    <dt>单价 / 应付</dt><dd>¥{{ e.unit_price | money }} / ¥{{ e.total_price | money }}</dd>
+    <dt>优惠 / 实付</dt><dd>¥{{ e.discount | money }} / <strong>¥{{ e.final_price | money }}</strong></dd>
+    <dt>已收 / 已退 / 未结</dt><dd>
+      <span class="money-pos">¥{{ e.paid_amount | money }}</span> /
+      <span class="money-neg">¥{{ e.refunded_amount | money }}</span> /
+      {% set ow = e.outstanding %}
+      {% if ow > 0 %}<span class="money-neg"><strong>¥{{ ow | money }}</strong></span>
+      {% else %}<span class="muted">¥0.00</span>{% endif %}
+    </dd>
+    <dt>报名日期</dt><dd>{{ e.enrolled_at | date }}</dd>
+    <dt>有效期至</dt><dd>{{ e.expires_at | date or '不限' }}</dd>
+    {% if e.notes %}
+    <dt>备注</dt><dd>{{ e.notes }}</dd>
+    {% endif %}
+  </dl>
+</div>
+
+<div class="card" id="attendance">
+  <div class="card-title">
+    <span>🗓️ 出勤记录({{ attendances|length }})</span>
+  </div>
+  {% if attendances %}
+  <table class="table">
+    <thead>
+      <tr><th>时间</th><th>状态</th><th class="num">扣课时</th><th>备注</th></tr>
+    </thead>
+    <tbody>
+      {% for a in attendances %}
+      <tr>
+        <td><a href="{{ url_for('schedules.detail', sid=a.schedule_id) }}">{{ a.schedule.start_time | dt }}</a></td>
+        <td>
+          {% if a.attendance == 'present' %}<span class="badge badge-success">出勤</span>
+          {% elif a.attendance == 'absent' %}<span class="badge badge-danger">缺席</span>
+          {% elif a.attendance == 'makeup' %}<span class="badge badge-info">补课</span>
+          {% elif a.attendance == 'leave' %}<span class="badge badge-warning">请假</span>
+          {% else %}<span class="badge">{{ a.attendance }}</span>{% endif %}
+        </td>
+        <td class="num">{{ a.hours_used }}</td>
+        <td>{{ a.notes or '-' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">还没有出勤记录</div>
+  {% endif %}
+</div>
+
+{% if payments %}
+<div class="card">
+  <div class="card-title"><span>💰 收款流水</span></div>
+  <table class="table">
+    <thead><tr><th>收据号</th><th>金额</th><th>方式</th><th>时间</th><th>备注</th></tr></thead>
+    <tbody>
+      {% for p in payments %}
+      <tr>
+        <td class="muted">{{ p.code }}</td>
+        <td class="num money-pos">¥{{ p.amount | money }}</td>
+        <td>{{ p.method_label }}</td>
+        <td>{{ p.paid_at | dt }}</td>
+        <td>{{ p.notes or '-' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if refunds %}
+<div class="card">
+  <div class="card-title"><span>↩️ 退费流水</span></div>
+  <table class="table">
+    <thead><tr><th>单号</th><th>金额</th><th>方式</th><th>原因</th><th>时间</th></tr></thead>
+    <tbody>
+      {% for r in refunds %}
+      <tr>
+        <td class="muted">{{ r.code }}</td>
+        <td class="num money-neg">¥{{ r.amount | money }}</td>
+        <td>{{ r.method_label }}</td>
+        <td>{{ r.reason or '-' }}</td>
+        <td>{{ r.refunded_at | dt }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="card" id="adjustments">
+  <div class="card-title">
+    <span>⏱️ 课时调整流水({{ adjustments|length }})</span>
+  </div>
+  {% if adjustments %}
+  <table class="table">
+    <thead>
+      <tr><th>时间</th><th class="num">变动课时</th><th>原因</th><th>操作人</th></tr>
+    </thead>
+    <tbody>
+      {% for a in adjustments %}
+      <tr>
+        <td>{{ a.created_at | dt }}</td>
+        <td class="num {% if a.change_hours > 0 %}money-pos{% else %}money-neg{% endif %}">
+          {% if a.change_hours > 0 %}+{% else %}{% endif %}{{ a.change_hours }}
+        </td>
+        <td>{{ a.reason or '-' }}</td>
+        <td>{{ a.operator or '-' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">还没有调整记录</div>
+  {% endif %}
+
+  <hr>
+  <h3 style="margin:0 0 12px;font-size:14px;color:var(--gray-700)">手工调整课时</h3>
+  <form method="post" action="{{ url_for('enrollments.add_adjustment', eid=e.id) }}">
+    <div class="form-grid">
+      <div class="form-field">
+        <label>变动课时(正数赠送,负数扣减)</label>
+        <input type="number" step="0.5" name="change_hours" required placeholder="如: 5 或 -2">
+      </div>
+      <div class="form-field">
+        <label>操作人</label>
+        <input type="text" name="operator" placeholder="选填,如:管理员">
+      </div>
+      <div class="form-field full">
+        <label>原因</label>
+        <input type="text" name="reason" placeholder="如:家长反馈补课奖励、活动赠送、试听扣减">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">提交</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <form method="post" action="{{ url_for('enrollments.delete', eid=e.id) }}" onsubmit="return confirm('确认删除该报名? (有流水时无法删除)')">
+    <button type="submit" class="btn btn-danger btn-sm">删除报名</button>
+  </form>
+</div>
+{% endblock %}

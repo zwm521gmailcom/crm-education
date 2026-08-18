@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑' if mode == 'edit' else '新排期' }} - 教培 CRM{% endblock %}
+{% block page_title %}{{ '编辑' if mode == 'edit' else '新排期' }}{% endblock %}
+
+{% block content %}
+<div class="card">
+  <form method="post">
+    <div class="form-grid">
+      <div class="form-field">
+        <label>课程 <span class="req">*</span></label>
+        <select name="course_id" required id="course-select" {% if s %}disabled{% endif %}>
+          <option value="">-- 选择课程 --</option>
+          {% for c in courses %}
+          <option value="{{ c.id }}"
+            data-teacher="{{ c.default_teacher or '' }}"
+            {% if s and s.course_id == c.id %}selected{% endif %}
+            {% if request.args.get('course_id', type=int) == c.id %}selected{% endif %}>
+            {{ c.name }}
+          </option>
+          {% endfor %}
+        </select>
+        {% if s %}<input type="hidden" name="course_id" value="{{ s.course_id }}">{% endif %}
+      </div>
+      <div class="form-field">
+        <label>老师</label>
+        <input type="text" name="teacher" id="teacher" value="{{ s.teacher if s else '' }}">
+      </div>
+      <div class="form-field">
+        <label>教室</label>
+        <input type="text" name="classroom" value="{{ s.classroom if s else '' }}">
+      </div>
+      <div class="form-field">
+        <label>最大人数</label>
+        <input type="number" min="1" name="max_students" value="{{ s.max_students if s else 1 }}">
+      </div>
+      <div class="form-field">
+        <label>本课扣课时</label>
+        <input type="number" step="0.5" min="0" name="hours_per_session" value="{{ s.hours_per_session if s else 1 }}">
+      </div>
+      <div class="form-field">
+        <label>开始时间 <span class="req">*</span></label>
+        <div class="dt-picker" data-name="start_time" data-default="{{ s.start_time | dt('%Y-%m-%dT%H:%M') if s else '' }}">
+          <input type="text" class="dt-display" readonly placeholder="点击选择日期和时间...">
+          <input type="hidden" class="dt-hidden">
+          <div class="dt-popover" hidden>
+            <div class="dt-popover-header">
+              <button type="button" class="dt-prev" aria-label="上一年">«</button>
+              <button type="button" class="dt-prev-m" aria-label="上一月">‹</button>
+              <span class="dt-title">2026年8月</span>
+              <button type="button" class="dt-next-m" aria-label="下一月">›</button>
+              <button type="button" class="dt-next" aria-label="下一年">»</button>
+            </div>
+            <div class="dt-weekdays">
+              <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+            </div>
+            <div class="dt-days"></div>
+            <div class="dt-time">
+              <select class="dt-hour" aria-label="小时"></select>
+              <span class="dt-time-sep">:</span>
+              <select class="dt-minute" aria-label="分钟"></select>
+            </div>
+            <div class="dt-popover-footer">
+              <button type="button" class="btn dt-cancel">取消</button>
+              <button type="button" class="btn btn-primary dt-ok">确定</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="form-field">
+        <label>结束时间 <span class="req">*</span></label>
+        <div class="dt-picker" data-name="end_time" data-default="{{ s.end_time | dt('%Y-%m-%dT%H:%M') if s else '' }}">
+          <input type="text" class="dt-display" readonly placeholder="点击选择日期和时间...">
+          <input type="hidden" class="dt-hidden">
+          <div class="dt-popover" hidden>
+            <div class="dt-popover-header">
+              <button type="button" class="dt-prev" aria-label="上一年">«</button>
+              <button type="button" class="dt-prev-m" aria-label="上一月">‹</button>
+              <span class="dt-title">2026年8月</span>
+              <button type="button" class="dt-next-m" aria-label="下一月">›</button>
+              <button type="button" class="dt-next" aria-label="下一年">»</button>
+            </div>
+            <div class="dt-weekdays">
+              <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+            </div>
+            <div class="dt-days"></div>
+            <div class="dt-time">
+              <select class="dt-hour" aria-label="小时"></select>
+              <span class="dt-time-sep">:</span>
+              <select class="dt-minute" aria-label="分钟"></select>
+            </div>
+            <div class="dt-popover-footer">
+              <button type="button" class="btn dt-cancel">取消</button>
+              <button type="button" class="btn btn-primary dt-ok">确定</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% if s %}
+      <div class="form-field">
+        <label>状态</label>
+        <select name="status">
+          <option value="scheduled" {% if s.status == 'scheduled' %}selected{% endif %}>计划中</option>
+          <option value="ongoing" {% if s.status == 'ongoing' %}selected{% endif %}>进行中</option>
+          <option value="completed" {% if s.status == 'completed' %}selected{% endif %}>已完成</option>
+          <option value="cancelled" {% if s.status == 'cancelled' %}selected{% endif %}>已取消</option>
+        </select>
+      </div>
+      {% endif %}
+      <div class="form-field full">
+        <label>备注</label>
+        <textarea name="notes">{{ s.notes if s else '' }}</textarea>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">保存</button>
+      <a class="btn" href="{{ url_for('schedules.list_view') }}">取消</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  // ===== 一体化日期时间选择器 (popover 日历) =====
+  // 一个 input, 点开弹月历 + 时分下拉, 完整 0-23 时 0-59 分
+  const dtFields = {};   // name -> { display, hidden, popover, ..., state }
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+
+  document.querySelectorAll('.dt-picker').forEach(picker => {
+    const name = picker.dataset.name;
+    const display = picker.querySelector('.dt-display');
+    const hidden = picker.querySelector('.dt-hidden');
+    hidden.name = name;
+    const popover = picker.querySelector('.dt-popover');
+    const daysEl = popover.querySelector('.dt-days');
+    const titleEl = popover.querySelector('.dt-title');
+    const hourSel = popover.querySelector('.dt-hour');
+    const minuteSel = popover.querySelector('.dt-minute');
+    const prevY = popover.querySelector('.dt-prev');
+    const prevM = popover.querySelector('.dt-prev-m');
+    const nextM = popover.querySelector('.dt-next-m');
+    const nextY = popover.querySelector('.dt-next');
+    const okBtn = popover.querySelector('.dt-ok');
+    const cancelBtn = popover.querySelector('.dt-cancel');
+
+    // 初始化小时/分钟下拉
+    for (let h = 0; h < 24; h++) {
+      const o = document.createElement('option');
+      o.value = h; o.textContent = pad2(h);
+      hourSel.appendChild(o);
+    }
+    for (let mi = 0; mi < 60; mi++) {
+      const o = document.createElement('option');
+      o.value = mi; o.textContent = pad2(mi);
+      minuteSel.appendChild(o);
+    }
+
+    // 解析默认值
+    const now = new Date();
+    let defY = now.getFullYear(), defM = now.getMonth() + 1, defD = now.getDate();
+    let defH = 18, defMi = 0;
+    const dv = picker.dataset.default || '';
+    const m = dv.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+    if (m) {
+      defY = +m[1]; defM = +m[2]; defD = +m[3]; defH = +m[4]; defMi = +m[5];
+    }
+
+    // 状态
+    const state = {
+      y: defY, mo: defM, d: defD, h: defH, mi: defMi,
+      // popover 临时编辑(点确定才提交)
+      viewY: defY, viewMo: defM, viewD: defD, viewH: defH, viewMi: defMi
+    };
+
+    function fmt(y, mo, d, h, mi) {
+      return `${y}-${pad2(mo)}-${pad2(d)} ${pad2(h)}:${pad2(mi)}`;
+    }
+    function apply() {
+      hidden.value = `${state.y}-${pad2(state.mo)}-${pad2(state.d)}T${pad2(state.h)}:${pad2(state.mi)}`;
+      display.value = fmt(state.y, state.mo, state.d, state.h, state.mi);
+    }
+    function renderCalendar() {
+      // 月份标题
+      titleEl.textContent = `${state.viewY}年${state.viewMo}月`;
+      daysEl.innerHTML = '';
+      const first = new Date(state.viewY, state.viewMo - 1, 1);
+      const firstWeekday = first.getDay();   // 0=日
+      const daysInMonth = new Date(state.viewY, state.viewMo, 0).getDate();
+      // 上月尾几天
+      const prevMonthLast = new Date(state.viewY, state.viewMo - 1, 0).getDate();
+      // 总格子: 6 行 x 7 列 = 42
+      for (let i = 0; i < 42; i++) {
+        let y = state.viewY, mo = state.viewMo, d;
+        if (i < firstWeekday) {
+          // 上月
+          mo = state.viewMo - 1;
+          if (mo < 1) { mo = 12; y--; }
+          d = prevMonthLast - (firstWeekday - 1 - i);
+        } else if (i >= firstWeekday + daysInMonth) {
+          // 下月
+          mo = state.viewMo + 1;
+          if (mo > 12) { mo = 1; y++; }
+          d = i - firstWeekday - daysInMonth + 1;
+        } else {
+          d = i - firstWeekday + 1;
+        }
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = d;
+        btn.dataset.y = y;
+        btn.dataset.mo = mo;
+        btn.dataset.d = d;
+        if (mo !== state.viewMo) btn.classList.add('dt-out');
+        const today = new Date();
+        if (y === today.getFullYear() && mo === today.getMonth() + 1 && d === today.getDate()) {
+          btn.classList.add('dt-today');
+        }
+        if (y === state.viewY && mo === state.viewMo && d === state.viewD) {
+          btn.classList.add('dt-selected');
+        }
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          state.viewY = +btn.dataset.y;
+          state.viewMo = +btn.dataset.mo;
+          state.viewD = +btn.dataset.d;
+          renderCalendar();
+        });
+        daysEl.appendChild(btn);
+      }
+    }
+    function syncTime() {
+      hourSel.value = state.viewH;
+      minuteSel.value = state.viewMi;
+    }
+
+    // 初始显示
+    apply();
+
+    // 点 display 弹 popover
+    display.addEventListener('click', e => {
+      e.stopPropagation();
+      // 关闭其他 popover
+      document.querySelectorAll('.dt-popover').forEach(p => p.hidden = true);
+      // 重置 view 到当前值
+      state.viewY = state.y; state.viewMo = state.mo; state.viewD = state.d;
+      state.viewH = state.h; state.viewMi = state.mi;
+      renderCalendar();
+      syncTime();
+      popover.hidden = false;
+      // 定位: popover 已经在 .dt-picker 内, position:absolute, top:100%, left:0
+    });
+
+    // 切月
+    function shiftMonth(delta) {
+      let y = state.viewY, mo = state.viewMo + delta;
+      if (mo < 1) { mo += 12; y--; }
+      if (mo > 12) { mo -= 12; y++; }
+      state.viewY = y; state.viewMo = mo;
+      renderCalendar();
+    }
+    function shiftYear(delta) {
+      state.viewY += delta;
+      renderCalendar();
+    }
+    prevM.addEventListener('click', e => { e.stopPropagation(); shiftMonth(-1); });
+    nextM.addEventListener('click', e => { e.stopPropagation(); shiftMonth(1); });
+    prevY.addEventListener('click', e => { e.stopPropagation(); shiftYear(-1); });
+    nextY.addEventListener('click', e => { e.stopPropagation(); shiftYear(1); });
+
+    // 时分
+    hourSel.addEventListener('change', e => { e.stopPropagation(); state.viewH = +hourSel.value; });
+    minuteSel.addEventListener('change', e => { e.stopPropagation(); state.viewMi = +minuteSel.value; });
+
+    // 确定
+    okBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      state.y = state.viewY; state.mo = state.viewMo; state.d = state.viewD;
+      state.h = state.viewH; state.mi = state.viewMi;
+      apply();
+      popover.hidden = true;
+      // 联动: 开始时间选完, 结束时间自动 +1 小时
+      if (name === 'start_time' && dtFields['end_time']) {
+        const ep = dtFields['end_time'];
+        const d = new Date(state.y, state.mo - 1, state.d, state.h, state.mi);
+        d.setHours(d.getHours() + 1);
+        ep.setValue(d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes());
+      }
+    });
+    // 取消
+    cancelBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      // 恢复 view 到当前值
+      state.viewY = state.y; state.viewMo = state.mo; state.viewD = state.d;
+      state.viewH = state.h; state.viewMi = state.mi;
+      popover.hidden = true;
+    });
+
+    // popover 内点不关闭
+    popover.addEventListener('click', e => e.stopPropagation());
+
+    // 暴露给联动
+    const obj = {
+      el: picker,
+      display, hidden, popover, state,
+      apply, renderCalendar,
+      setValue(y, mo, d, h, mi) {
+        state.y = y; state.mo = mo; state.d = d; state.h = h; state.mi = mi;
+        state.viewY = y; state.viewMo = mo; state.viewD = d;
+        state.viewH = h; state.viewMi = mi;
+        apply();
+        if (!popover.hidden) { renderCalendar(); syncTime(); }
+      },
+      open() { display.click(); }
+    };
+    dtFields[name] = obj;
+  });
+
+  // 点外部关闭所有 popover
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.dt-popover').forEach(p => p.hidden = true);
+  });
+
+  // ===== 课程切换时自动填老师 =====
+  const courseSel = document.getElementById('course-select');
+  const teacher = document.getElementById('teacher');
+  courseSel.addEventListener('change', () => {
+    const opt = courseSel.options[courseSel.selectedIndex];
+    if (opt && opt.dataset.teacher && !teacher.value) teacher.value = opt.dataset.teacher;
+  });
+</script>
+{% endblock %}

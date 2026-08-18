@@ -1,0 +1,78 @@
+# =====================================================
+# 教培 CRM .gitignore
+# 关键红线：instance/*.db 严禁入库（含真实学员信息）
+# =====================================================
+
+# --- 虚拟环境 ---
+venv/
+.venv/
+env/
+ENV/
+
+# --- Python 缓存 ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# --- 数据库与备份（含真实学员数据，绝对不能入库） ---
+instance/*.db
+instance/*.db-journal
+instance/*.sqlite
+instance/*.sqlite3
+instance/backups/
+
+# --- 调试日志和临时文件 ---
+instance/flask.out.log
+instance/flask.err.log
+instance/backup_log.txt
+instance/__trash_*.xlsx
+instance/students_test.xlsx
+*.log
+*.tmp
+
+# --- 一次性调试脚本（根目录开发期残留） ---
+_check_wa.py
+_check_wa2.py
+_check_wa3.py
+_db_check.py
+_pre.py
+
+# --- Windows venv 残留（在 mac 上不能用，但留着也没用） ---
+venv/Include/
+venv/Lib/
+venv/Scripts/
+venv/pyvenv.cfg
+venv/share/
+
+# --- 系统文件 ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.AppleDouble
+.LSOverride
+
+# --- IDE / 编辑器 ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*~
+.project
+.pydevproject
+
+# --- 环境变量与密钥（CRM_SECRET_KEY） ---
+.env
+.env.local
+.env.*.local
+secrets.txt
+
+# --- 上传 / 临时文件 ---
+*.bak
+*.orig
+*.rej
+
+# --- 导出文件（如果以后想跟踪可单独加 !export/*.xlsx 规则） ---
+# 暂不跟踪导出，留个口子

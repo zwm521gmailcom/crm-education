@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}排期详情 - 教培 CRM{% endblock %}
+{% block page_title %}排期详情{% endblock %}
+{% block topbar_actions %}
+<a class="btn btn-sm" href="{{ url_for('schedules.edit', sid=s.id) }}">编辑</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-title">
+    <span>🗓️ 排期信息</span>
+    <span class="badge badge-{% if s.status == 'scheduled' %}success{% elif s.status == 'completed' %}info{% elif s.status == 'cancelled' %}danger{% else %}warning{% endif %}">
+      {{ s.status_label }}
+    </span>
+  </div>
+  <dl class="detail-grid">
+    <dt>课程</dt><dd><a href="{{ url_for('courses.detail', cid=s.course_id) }}">{{ s.course.name }}</a></dd>
+    <dt>开始 / 结束</dt><dd>{{ s.start_time | dt }} ~ {{ s.end_time | dt('%H:%M') }}</dd>
+    <dt>老师</dt><dd>{{ s.teacher or '-' }}</dd>
+    <dt>教室</dt><dd>{{ s.classroom or '-' }}</dd>
+    <dt>最大人数</dt><dd>{{ s.max_students }} 人</dd>
+    <dt>本课扣课时</dt><dd>{{ s.hours_per_session }} 课时</dd>
+    <dt>已上 / 上限</dt><dd>{{ s.attended_count }} / {{ s.max_students }}</dd>
+    {% if s.notes %}
+    <dt>备注</dt><dd>{{ s.notes }}</dd>
+    {% endif %}
+  </dl>
+</div>
+
+<div class="card" id="attendance">
+  <div class="card-title">
+    <span>👥 学员出勤({{ attendances|length }})</span>
+  </div>
+
+  {% if attendances %}
+  <table class="table">
+    <thead>
+      <tr><th>学员</th><th>课程报名</th><th>状态</th><th class="num">扣课时</th><th>备注</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for a in attendances %}
+      <tr>
+        <td><a href="{{ url_for('students.detail', sid=a.enrollment.student_id) }}">{{ a.enrollment.student.name }}</a></td>
+        <td><a href="{{ url_for('enrollments.detail', eid=a.enrollment_id) }}">{{ a.enrollment.code }}</a></td>
+        <td>
+          {% if a.attendance == 'present' %}<span class="badge badge-success">出勤</span>
+          {% elif a.attendance == 'absent' %}<span class="badge badge-danger">缺席</span>
+          {% elif a.attendance == 'makeup' %}<span class="badge badge-info">补课</span>
+          {% elif a.attendance == 'leave' %}<span class="badge badge-warning">请假</span>
+          {% else %}<span class="badge">{{ a.attendance }}</span>{% endif %}
+        </td>
+        <td class="num">{{ a.hours_used }}</td>
+        <td>{{ a.notes or '-' }}</td>
+        <td>
+          <form method="post" action="{{ url_for('schedules.delete_attendance', sid=s.id, aid=a.id) }}" style="display:inline" onsubmit="return confirm('删除该出勤记录会回退课时,确认?')">
+            <button class="btn btn-sm btn-danger" type="submit">删除</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">还没有出勤记录</div>
+  {% endif %}
+
+  <hr>
+  <h3 style="margin:0 0 12px;font-size:14px;color:var(--gray-700)">添加出勤</h3>
+  {% if candidates %}
+  <form method="post" action="{{ url_for('schedules.add_attendance', sid=s.id) }}">
+    <div class="form-grid">
+      <div class="form-field">
+        <label>学员报名 <span class="req">*</span></label>
+        <input type="text" id="cand-input" list="cand-list" placeholder="输入学员名 / 编号 / 剩余课时 (可直接输入检索,或点击下拉选择)..." autocomplete="off">
+        <datalist id="cand-list">
+          {% for e in candidates %}
+          <option value="{{ e.student.name }} - {{ e.code }} (剩 {{ e.remaining_hours }})" data-id="{{ e.id }}"></option>
+          {% endfor %}
+        </datalist>
+        <input type="hidden" name="enrollment_id" id="enrollment-id">
+        <div style="display:flex;gap:6px;align-items:center;margin-top:6px;">
+          <button type="button" class="btn btn-sm" onclick="clearCand()">清空</button>
+          <span class="muted" id="cand-count" style="font-size:12px;">
+            共 {{ candidates|length }} 个可报名
+          </span>
+        </div>
+      </div>
+      <div class="form-field">
+        <label>状态</label>
+        <select name="attendance">
+          <option value="present">出勤(扣课时)</option>
+          <option value="makeup">补课(扣课时)</option>
+          <option value="absent">缺席(不扣)</option>
+          <option value="leave">请假(不扣)</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>扣课时</label>
+        <input type="number" step="0.5" min="0" name="hours_used" value="{{ s.hours_per_session }}">
+      </div>
+      <div class="form-field full">
+        <label>备注</label>
+        <input type="text" name="notes" placeholder="可选">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">添加</button>
+    </div>
+  </form>
+  {% else %}
+  <div class="empty">该课程下没有可用的 active 报名(学员都需要先报名并有剩余课时)</div>
+  {% endif %}
+</div>
+
+<script>
+  // 学员报名 combobox: input + datalist, 既可输入检索也可下拉选
+  (function() {
+    const input = document.getElementById('cand-input');
+    const list = document.getElementById('cand-list');
+    const hidden = document.getElementById('enrollment-id');
+    const counter = document.getElementById('cand-count');
+    if (!input || !list || !hidden) return;
+    const allOptions = Array.from(list.options);
+    const total = allOptions.length;
+
+    function sync() {
+      const v = input.value;
+      const opt = allOptions.find(o => o.value === v);
+      hidden.value = opt ? opt.dataset.id : '';
+    }
+    function updateCounter() {
+      const q = input.value.trim().toLowerCase();
+      if (!q) { counter.textContent = `共 ${total} 个可报名`; return; }
+      const shown = allOptions.filter(o => o.value.toLowerCase().includes(q)).length;
+      counter.textContent = `匹配 ${shown} / ${total}`;
+    }
+    input.addEventListener('input', () => { sync(); updateCounter(); });
+    input.addEventListener('change', () => { sync(); updateCounter(); });
+
+    // 暴露给清空按钮
+    window.clearCand = function() {
+      input.value = '';
+      sync();
+      updateCounter();
+      input.focus();
+    };
+
+    // 提交校验:hidden 没值就阻止
+    const form = input.closest('form');
+    if (form) {
+      form.addEventListener('submit', e => {
+        sync();
+        if (!hidden.value) {
+          e.preventDefault();
+          alert('请从下拉列表中选择一个学员报名(直接输入的文字不算)');
+          input.focus();
+        }
+      });
+    }
+  })();
+</script>
+
+<div class="card">
+  <form method="post" action="{{ url_for('schedules.delete', sid=s.id) }}" onsubmit="return confirm('确认删除该排期? (有出勤记录时无法删除)')">
+    <button type="submit" class="btn btn-danger btn-sm">删除排期</button>
+  </form>
+</div>
+{% endblock %}

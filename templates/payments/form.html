@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}新增收款 - 教培 CRM{% endblock %}
+{% block page_title %}新增收款{% endblock %}
+
+{% block content %}
+<div class="card">
+  <form method="post" id="pay-form">
+    <div class="form-grid">
+      <div class="form-field">
+        <label>学员 <span class="req">*</span></label>
+        <select name="student_id" required id="student-select" style="width:100%;">
+          <option value="">-- 选择学员 --</option>
+          {% for s in students %}
+          <option value="{{ s.id }}" {% if selected_student_id == s.id %}selected{% endif %}>
+            {{ s.name }}{% if s.code %} ({{ s.code }}){% endif %}
+          </option>
+          {% endfor %}
+        </select>
+        {% if not selected_student_id %}
+        <div class="muted" style="font-size:12px;margin-top:4px;">先选学员,会显示该学员下的报名</div>
+        {% endif %}
+      </div>
+      <div class="form-field">
+        <label>关联报名 <span class="muted">(可选)</span></label>
+        <select name="enrollment_id" id="enrollment-select">
+          <option value="">-- 不关联 --</option>
+          {% for e in enrollments %}
+          <option value="{{ e.id }}"
+            data-amount="{{ e.outstanding }}"
+            {% if request.args.get('enrollment_id', type=int) == e.id %}selected{% endif %}>
+            {{ e.course.name }} - {{ e.code }} (未结 ¥{{ e.outstanding | money }})
+          </option>
+          {% endfor %}
+        </select>
+        {% if selected_student_id and not enrollments %}
+        <div class="muted" style="font-size:12px;margin-top:4px;">该学员下没有 active 报名</div>
+        {% endif %}
+      </div>
+      <div class="form-field">
+        <label>金额(元) <span class="req">*</span></label>
+        <input type="number" step="0.01" min="0.01" name="amount" required id="amount" value="{{ request.args.get('amount', '') }}">
+      </div>
+      <div class="form-field">
+        <label>类型</label>
+        <select name="payment_type">
+          <option value="enrollment" {% if request.args.get('payment_type') == 'enrollment' or not request.args.get('payment_type') %}selected{% endif %}>报名费</option>
+          <option value="renewal" {% if request.args.get('payment_type') == 'renewal' %}selected{% endif %}>续费</option>
+          <option value="material" {% if request.args.get('payment_type') == 'material' %}selected{% endif %}>教材</option>
+          <option value="other" {% if request.args.get('payment_type') == 'other' %}selected{% endif %}>其他</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>支付方式</label>
+        <select name="payment_method">
+          <option value="wechat" {% if request.args.get('payment_method') == 'wechat' or not request.args.get('payment_method') %}selected{% endif %}>微信</option>
+          <option value="alipay" {% if request.args.get('payment_method') == 'alipay' %}selected{% endif %}>支付宝</option>
+          <option value="cash" {% if request.args.get('payment_method') == 'cash' %}selected{% endif %}>现金</option>
+          <option value="bank" {% if request.args.get('payment_method') == 'bank' %}selected{% endif %}>银行转账</option>
+          <option value="other" {% if request.args.get('payment_method') == 'other' %}selected{% endif %}>其他</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>收款时间</label>
+        <input type="datetime-local" name="paid_at" value="{{ request.args.get('paid_at', '') }}">
+      </div>
+      <div class="form-field full">
+        <label>备注</label>
+        <input type="text" name="notes" placeholder="可选" value="{{ request.args.get('notes', '') }}">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">保存</button>
+      <a class="btn" href="{{ url_for('payments.list_view') }}">取消</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  // 选学员时:带上当前 form 状态,GET 跳到 /payments/new?student_id=xx,让后端渲染该学员下的报名
+  (function() {
+    const sSel = document.getElementById('student-select');
+    const eSel = document.getElementById('enrollment-select');
+    const form = document.getElementById('pay-form');
+    sSel.addEventListener('change', () => {
+      // 收集当前 form 字段,作为 URL 参数带过去(避免切换学员后丢失已填项)
+      const params = new URLSearchParams();
+      if (sSel.value) params.set('student_id', sSel.value);
+      for (const el of form.elements) {
+        if (!el.name || el === sSel) continue;
+        if (['amount','payment_type','payment_method','paid_at','notes'].includes(el.name)) {
+          if (el.value) params.set(el.name, el.value);
+        }
+      }
+      window.location.search = params.toString();
+    });
+    // 选报名时自动填未结金额
+    const amt = document.getElementById('amount');
+    eSel.addEventListener('change', () => {
+      const opt = eSel.options[eSel.selectedIndex];
+      if (opt && opt.dataset.amount && parseFloat(opt.dataset.amount) > 0) {
+        amt.value = opt.dataset.amount;
+      }
+    });
+  })();
+</script>
+{% endblock %}

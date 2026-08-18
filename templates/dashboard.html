@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}仪表盘 - 教培 CRM{% endblock %}
+{% block page_title %}仪表盘{% endblock %}
+{% block topbar_actions %}
+<a class="btn btn-primary btn-sm" href="{{ url_for('students.create') }}">+ 新增学员</a>
+{% endblock %}
+
+{% block content %}
+<div class="stat-grid">
+  <div class="stat">
+    <div class="stat-label">在读学员</div>
+    <div class="stat-value success">{{ student_active }}</div>
+    <div class="muted">共 {{ student_total }} 人 · 已退费 {{ student_refunded }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">上架课程</div>
+    <div class="stat-value">{{ course_active }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">剩余课时(总)</div>
+    <div class="stat-value">{{ remaining_hours }}</div>
+    <div class="muted">总购 {{ total_hours }} · 已用 {{ used_hours }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">本月营收</div>
+    <div class="stat-value success">¥{{ revenue_month | money }}</div>
+    <div class="muted">累计 ¥{{ revenue_total | money }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">本月退费</div>
+    <div class="stat-value danger">¥{{ refund_month | money }}</div>
+    <div class="muted">累计 ¥{{ refund_total | money }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">已消耗金额</div>
+    <div class="stat-value" style="color:#7c3aed">¥{{ used_value_total | money }}</div>
+    <div class="muted">已上 {{ used_hours }} 课时 × 各订单单价</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">本月排期消耗</div>
+    <div class="stat-value" style="color:#7c3aed">¥{{ month_used_value | money }}</div>
+    <div class="muted">本月已上 {{ month_used_hours }} 课时 × 各订单单价</div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="card">
+    <div class="card-title">
+      <span>🗓️ 近期排期</span>
+      <a class="btn btn-sm" href="{{ url_for('schedules.list_view') }}">全部</a>
+    </div>
+    {% if upcoming %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>时间</th><th>课程</th><th>老师</th><th>教室</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in upcoming %}
+        <tr>
+          <td>{{ s.start_time | dt('%m-%d %H:%M') }}</td>
+          <td><a href="{{ url_for('schedules.detail', sid=s.id) }}">{{ s.course.name }}</a></td>
+          <td>{{ s.teacher or '-' }}</td>
+          <td>{{ s.classroom or '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">暂无排期</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <span>⚠️ 课时紧张学员(剩余 ≤ 3)</span>
+    </div>
+    {% if tight_hours %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>学员</th><th>课程</th><th class="num">剩余</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in tight_hours %}
+        <tr>
+          <td><a href="{{ url_for('students.detail', sid=e.student_id) }}">{{ e.student.name }}</a></td>
+          <td>{{ e.course.name }}</td>
+          <td class="num"><span class="badge badge-warning">{{ e.remaining_hours }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">没有课时紧张的学员</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <div class="card-title">
+    <span>💸 退费明细</span>
+    <a class="btn btn-sm" href="{{ url_for('refunds.list_view') }}">全部</a>
+  </div>
+  {% if recent_refunds %}
+  <div class="two-col" style="gap:16px">
+    <div>
+      <div class="muted" style="font-size:13px;margin-bottom:6px">已退费学员(按最近退费时间倒序,最多 8 人)</div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>学员</th><th class="num">笔数</th><th class="num">总退费</th><th>最近退费</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in refunded_students %}
+          <tr>
+            <td>
+              <a href="{{ url_for('students.detail', sid=r.student.id) }}">{{ r.student.name }}</a>
+              {% if r.student.code %}<span class="muted">({{ r.student.code }})</span>{% endif %}
+            </td>
+            <td class="num">{{ r.refund_count }}</td>
+            <td class="num money-neg">¥{{ '%0.2f' | format(r.refund_total) }}</td>
+            <td>{{ r.last_refund_at | dt('%m-%d %H:%M') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div class="muted" style="font-size:13px;margin-bottom:6px">最近退费记录(最多 8 条)</div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>单号</th><th>学员</th><th>课程</th><th class="num">金额</th><th>原因</th><th>时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in recent_refunds %}
+          <tr>
+            <td class="muted">{{ r.code }}</td>
+            <td><a href="{{ url_for('students.detail', sid=r.student_id) }}">{{ r.student.name }}</a></td>
+            <td>{{ r.enrollment.course.name }}</td>
+            <td class="num money-neg">¥{{ r.amount | money }}</td>
+            <td>{{ r.reason or '-' }}</td>
+            <td>{{ r.refunded_at | dt('%m-%d %H:%M') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty">还没有退费记录 · <a href="{{ url_for('refunds.create') }}">记一笔</a></div>
+  {% endif %}
+</div>
+{% endblock %}

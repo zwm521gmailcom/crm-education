@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}收款记录 - 教培 CRM{% endblock %}
+{% block page_title %}收款记录{% endblock %}
+{% block topbar_actions %}
+<a class="btn btn-sm" href="{{ url_for('exports.payments_xlsx') }}">📥 导出 Excel</a>
+<a class="btn btn-primary btn-sm" href="{{ url_for('payments.create') }}">+ 新增收款</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="filter-bar">
+    <form method="get">
+      <select name="payment_type">
+        <option value="">全部类型</option>
+        <option value="enrollment" {% if payment_type == 'enrollment' %}selected{% endif %}>报名费</option>
+        <option value="renewal" {% if payment_type == 'renewal' %}selected{% endif %}>续费</option>
+        <option value="material" {% if payment_type == 'material' %}selected{% endif %}>教材</option>
+        <option value="other" {% if payment_type == 'other' %}selected{% endif %}>其他</option>
+      </select>
+      <button class="btn btn-sm" type="submit">查询</button>
+    </form>
+  </div>
+
+  {% if payments %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>收据号</th><th>学员</th>
+        <th class="num">金额</th><th>类型</th><th>方式</th>
+        <th>关联报名</th><th>时间</th><th>备注</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in payments %}
+      <tr>
+        <td class="muted">{{ p.code }}</td>
+        <td><a href="{{ url_for('students.detail', sid=p.student_id) }}">{{ p.student.name }}</a></td>
+        <td class="num money-pos">¥{{ p.amount | money }}</td>
+        <td>{{ p.type_label }}</td>
+        <td>{{ p.method_label }}</td>
+        <td>{% if p.enrollment_id %}<a href="{{ url_for('enrollments.detail', eid=p.enrollment_id) }}">{{ p.enrollment.code }}</a>{% else %}-{% endif %}</td>
+        <td>{{ p.paid_at | dt }}</td>
+        <td>{{ p.notes or '-' }}</td>
+        <td>
+          <form method="post" action="{{ url_for('payments.delete', pid=p.id) }}" style="display:inline" onsubmit="return confirm('确认删除该收款记录?')">
+            <button class="btn btn-sm btn-danger" type="submit">删除</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">还没有收款记录</div>
+  {% endif %}
+</div>
+{% endblock %}

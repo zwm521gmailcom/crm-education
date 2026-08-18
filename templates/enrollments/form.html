@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑' if mode == 'edit' else '新报名' }} - 教培 CRM{% endblock %}
+{% block page_title %}{{ '编辑' if mode == 'edit' else '新报名' }}{% endblock %}
+
+{% block content %}
+<div class="card">
+  <form method="post" id="enroll-form">
+    <div class="form-grid">
+      <div class="form-field">
+        <label>学员 <span class="req">*</span></label>
+        <select name="student_id" required {% if e %}disabled{% endif %}>
+          <option value="">-- 选择学员 --</option>
+          {% for s in students %}
+          <option value="{{ s.id }}"
+            {% if e and e.student_id == s.id %}selected{% endif %}
+            {% if request.args.get('student_id', type=int) == s.id %}selected{% endif %}>
+            {{ s.name }}{% if s.code %} ({{ s.code }}){% endif %}
+          </option>
+          {% endfor %}
+        </select>
+        {% if e %}<input type="hidden" name="student_id" value="{{ e.student_id }}">{% endif %}
+      </div>
+      <div class="form-field">
+        <label>课程 <span class="req">*</span></label>
+        <select name="course_id" required id="course-select" {% if e %}disabled{% endif %}>
+          <option value="">-- 选择课程 --</option>
+          {% for c in courses %}
+          <option value="{{ c.id }}"
+            data-hours="{{ c.default_hours }}"
+            data-price="{{ c.unit_price }}"
+            {% if e and e.course_id == c.id %}selected{% endif %}
+            {% if request.args.get('course_id', type=int) == c.id %}selected{% endif %}>
+            {{ c.name }} (¥{{ c.unit_price }}/课时, 默认 {{ c.default_hours }} 课时)
+          </option>
+          {% endfor %}
+        </select>
+        {% if e %}<input type="hidden" name="course_id" value="{{ e.course_id }}">{% endif %}
+      </div>
+      <div class="form-field">
+        <label>购买课时 <span class="req">*</span></label>
+        <input type="number" min="1" name="total_hours" id="total_hours" required
+               value="{{ e.total_hours if e else '' }}">
+      </div>
+      <div class="form-field">
+        <label>单价(元/课时)</label>
+        <input type="number" step="0.01" min="0" name="unit_price" id="unit_price"
+               value="{{ e.unit_price if e else '' }}">
+      </div>
+      <div class="form-field">
+        <label>应付总额(元)</label>
+        <input type="number" step="0.01" min="0" name="total_price" id="total_price"
+               value="{{ e.total_price if e else '' }}">
+      </div>
+      <div class="form-field">
+        <label>优惠(元)</label>
+        <input type="number" step="0.01" min="0" name="discount" id="discount"
+               value="{{ e.discount if e else 0 }}">
+      </div>
+      <div class="form-field">
+        <label>报名日期</label>
+        <input type="date" name="enrolled_at" value="{{ e.enrolled_at | date if e and e.enrolled_at else '' }}">
+      </div>
+      <div class="form-field">
+        <label>有效期至</label>
+        <input type="date" name="expires_at" value="{{ e.expires_at | date if e and e.expires_at else '' }}">
+      </div>
+      {% if e %}
+      <div class="form-field">
+        <label>状态</label>
+        <select name="status">
+          <option value="active" {% if e.status == 'active' %}selected{% endif %}>进行中</option>
+          <option value="completed" {% if e.status == 'completed' %}selected{% endif %}>已用完</option>
+          <option value="paused" {% if e.status == 'paused' %}selected{% endif %}>已暂停</option>
+          <option value="refunded" {% if e.status == 'refunded' %}selected{% endif %}>已退费</option>
+        </select>
+      </div>
+      {% endif %}
+      <div class="form-field full">
+        <label>备注</label>
+        <textarea name="notes">{{ e.notes if e else '' }}</textarea>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">保存</button>
+      <a class="btn" href="{{ url_for('enrollments.list_view') }}">取消</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  // 选择课程时自动填充默认课时/单价
+  const courseSel = document.getElementById('course-select');
+  const totalHours = document.getElementById('total_hours');
+  const unitPrice = document.getElementById('unit_price');
+  const totalPrice = document.getElementById('total_price');
+  const discount = document.getElementById('discount');
+
+  function recalc() {
+    const h = parseFloat(totalHours.value) || 0;
+    const p = parseFloat(unitPrice.value) || 0;
+    if (!totalPrice.dataset.touched) {
+      totalPrice.value = (h * p).toFixed(2);
+    }
+  }
+  totalPrice.addEventListener('input', () => totalPrice.dataset.touched = '1');
+
+  courseSel.addEventListener('change', () => {
+    const opt = courseSel.options[courseSel.selectedIndex];
+    if (!opt.value) return;
+    if (!totalHours.value) totalHours.value = opt.dataset.hours || '';
+    if (!unitPrice.value) unitPrice.value = opt.dataset.price || '';
+    delete totalPrice.dataset.touched;
+    recalc();
+  });
+  totalHours.addEventListener('input', recalc);
+  unitPrice.addEventListener('input', recalc);
+  discount.addEventListener('input', () => {});
+
+  if (courseSel.value) {
+    // 触发一次填充(如果空)
+    const opt = courseSel.options[courseSel.selectedIndex];
+    if (!totalHours.value) totalHours.value = opt.dataset.hours || '';
+    if (!unitPrice.value) unitPrice.value = opt.dataset.price || '';
+  }
+</script>
+{% endblock %}

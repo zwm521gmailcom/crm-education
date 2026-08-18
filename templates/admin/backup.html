@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}数据备份 - 教培 CRM{% endblock %}
+{% block page_title %}数据备份{% endblock %}
+
+{% block topbar_actions %}
+<a class="btn" href="{{ url_for('admin.restore') }}">♻️ 数据恢复</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <div class="card-title">当前数据库</div>
+  <dl class="detail-grid">
+    <dt>文件路径</dt>
+    <dd><code>{{ db_path }}</code></dd>
+    <dt>文件大小</dt>
+    <dd><strong>{{ db_size_text }}</strong></dd>
+    <dt>最后修改</dt>
+    <dd>{{ db_mtime | dt }}</dd>
+  </dl>
+  <hr>
+  <form method="post" action="{{ url_for('admin.backup_create') }}" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+    <div class="form-field" style="flex:1;min-width:220px">
+      <label>备份标签(可选)</label>
+      <input type="text" name="label" maxlength="40" placeholder="如 before_import / 2026Q3">
+    </div>
+    <button type="submit" class="btn btn-primary">⏬ 立即备份</button>
+    <button type="submit" formaction="{{ url_for('admin.backup_run_now') }}" class="btn" title="同步执行,完成后会跳回来">▶ 立即执行(脚本方式)</button>
+  </form>
+  <div class="muted" style="margin-top:10px">
+    💡 备份用的是 SQLite 在线 backup API,期间网站正常使用,不会锁库。两种立即备份结果一致,第二种适合调试脚本。
+  </div>
+</div>
+
+
+<div class="card">
+  <div class="card-title">
+    <span>备份文件</span>
+    <span class="muted" style="font-weight:400">保留最近 {{ max_backups }} 份手动备份,pre_restore 永不过期</span>
+  </div>
+
+  {% if backups %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>文件名</th>
+        <th>类型</th>
+        <th>大小</th>
+        <th>备份时间</th>
+        <th style="text-align:right">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in backups %}
+      <tr>
+        <td>
+          <code>{{ b.name }}</code>
+        </td>
+        <td>
+          {% if b.kind == 'pre_restore' %}
+            <span class="badge badge-warning">恢复前快照</span>
+          {% elif '_auto' in b.name %}
+            <span class="badge badge-success">定时</span>
+          {% else %}
+            <span class="badge badge-info">手动</span>
+          {% endif %}
+        </td>
+        <td class="num">{{ b.size_text }}</td>
+        <td>{{ b.mtime | dt }}</td>
+        <td style="text-align:right;white-space:nowrap">
+          <a class="btn btn-sm" href="{{ url_for('admin.backup_download', name=b.name) }}">下载</a>
+          <form method="post" action="{{ url_for('admin.backup_delete', name=b.name) }}" style="display:inline" onsubmit="return confirm('确认删除备份 {{ b.name }}?')">
+            <button class="btn btn-sm btn-danger" type="submit">删除</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">还没有任何备份。点上方"立即备份"创建第一份吧。</div>
+  {% endif %}
+</div>
+
+
+<div class="card">
+  <div class="card-title">
+    <span>⏰ 定时备份(Windows 计划任务)</span>
+    <span class="muted" style="font-weight:400">任务名: <code>CRM_Backup</code></span>
+  </div>
+
+  {% if schedule %}
+  <dl class="detail-grid">
+    <dt>当前计划</dt>
+    <dd>
+      <span class="badge {% if schedule.status == 'Ready' %}badge-success{% else %}badge-warning{% endif %}">
+        {{ schedule.status or '未知' }}
+      </span>
+      · {{ schedule.schedule_type or '未设置' }}
+      {% if schedule.start_time %} · 触发于 {{ schedule.start_time }}{% endif %}
+    </dd>
+    <dt>上次运行</dt>
+    <dd>
+      {{ schedule.last_run_time or '尚未运行' }}
+      {% if schedule.last_run_result %}
+        · 结果:
+        {% if schedule.last_run_result == '0' or schedule.last_run_result == 'The operation completed successfully.' %}
+          <span class="badge badge-success">成功</span>
+        {% else %}
+          <span class="badge badge-danger">失败 ({{ schedule.last_run_result }})</span>
+        {% endif %}
+      {% endif %}
+    </dd>
+    <dt>下次运行</dt>
+    <dd><strong>{{ schedule.next_run_time or '无' }}</strong></dd>
+  </dl>
+  <hr>
+  <form method="post" action="{{ url_for('admin.backup_schedule_delete') }}" style="display:inline" onsubmit="return confirm('确定删除定时任务吗?')">
+    <button class="btn btn-danger" type="submit">🗑 删除计划任务</button>
+  </form>
+  <p class="muted" style="margin-top:10px">要改计划?下面的表单会先删后建。</p>
+  <hr>
+  {% else %}
+  <p class="muted">当前没有定时任务。在下面表单配置即可创建(创建需要管理员权限,失败会提示)。</p>
+  {% endif %}
+
+  <h4 style="font-size:14px;margin:6px 0 10px">配置新计划</h4>
+  <form method="post" action="{{ url_for('admin.backup_schedule_save') }}">
+    <div class="form-grid">
+      <div class="form-field">
+        <label>类型</label>
+        <select name="type" id="sched-type">
+          <option value="daily">每日</option>
+          <option value="weekly" selected>每周</option>
+          <option value="hourly">每 N 小时</option>
+        </select>
+      </div>
+      <div class="form-field" id="sched-time-field">
+        <label>时间 (HH:MM)</label>
+        <input type="time" name="time" value="02:00">
+      </div>
+      <div class="form-field" id="sched-weekday-field">
+        <label>星期</label>
+        <select name="weekday">
+          <option value="MON">周一</option>
+          <option value="TUE">周二</option>
+          <option value="WED">周三</option>
+          <option value="THU">周四</option>
+          <option value="FRI">周五</option>
+          <option value="SAT">周六</option>
+          <option value="SUN" selected>周日</option>
+        </select>
+      </div>
+      <div class="form-field" id="sched-interval-field" style="display:none">
+        <label>间隔小时数 (1-23)</label>
+        <input type="number" name="interval" min="1" max="23" value="6">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">💾 保存计划</button>
+    </div>
+  </form>
+
+  {% if schedule_log %}
+  <hr>
+  <h4 style="font-size:13px;margin:6px 0 10px">最近运行记录(来自 instance/backup_log.txt)</h4>
+  <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:6px;padding:10px;font-size:12px;font-family:monospace;max-height:160px;overflow-y:auto;line-height:1.6">
+    {% for ln in schedule_log %}<div>{{ ln }}</div>{% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  (function() {
+    var sel = document.getElementById('sched-type');
+    var tf = document.getElementById('sched-time-field');
+    var wf = document.getElementById('sched-weekday-field');
+    var inf = document.getElementById('sched-interval-field');
+    function sync() {
+      var v = sel.value;
+      tf.style.display = (v === 'daily' || v === 'weekly') ? '' : 'none';
+      wf.style.display = (v === 'weekly') ? '' : 'none';
+      inf.style.display = (v === 'hourly') ? '' : 'none';
+    }
+    sel.addEventListener('change', sync);
+    sync();
+  })();
+</script>
+
+
+<div class="card">
+  <div class="card-title">🖥️ 桌面快捷方式</div>
+  <p class="muted">一键启动:检测 Flask 服务状态,必要时自动拉起,然后自动打开浏览器。关掉"服务窗口"即停服。</p>
+  {% if shortcut_exists %}
+    <p>✅ 桌面快捷方式已存在: <code>{{ shortcut_path }}</code></p>
+    <p class="muted">去桌面找"教培CRM"图标,双击即可。</p>
+  {% else %}
+    <p>桌面未检测到快捷方式{% if desktop_path %}(桌面目录: <code>{{ desktop_path }}</code>){% endif %}</p>
+    <form method="post" action="{{ url_for('admin.backup_create_shortcut') }}">
+      <button class="btn btn-primary" type="submit">📌 创建桌面快捷方式</button>
+    </form>
+  {% endif %}
+</div>
+
+
+<div class="card">
+  <div class="card-title">使用建议</div>
+  <ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.8;color:var(--gray-700)">
+    <li><strong>什么时候备份:</strong>大批量导入数据前、月底结算前、改动重要配置前、推送新版本前。</li>
+    <li><strong>下载离线保存:</strong>备份文件下载到本地 U 盘 / 网盘,防止硬盘损坏。</li>
+    <li><strong>恢复有风险:</strong>恢复会<strong style="color:var(--danger)">覆盖当前所有数据</strong>,系统会自动留一份 pre_restore 快照,但仍建议先手动备份一次再恢复。</li>
+    <li><strong>pre_restore 快照:</strong>每次恢复前自动创建,放在"备份文件"列表里;不需要可以手动删除。</li>
+    <li><strong>定时备份:</strong>走 Windows 计划任务,无需 Flask 进程常驻。但创建/删除计划需要管理员权限(失败时会提示)。</li>
+  </ul>
+</div>
+
+{% endblock %}

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}学员管理 - 教培 CRM{% endblock %}
+{% block page_title %}学员管理{% endblock %}
+{% block topbar_actions %}
+<a class="btn btn-sm" href="{{ url_for('exports.students_xlsx', sort=sort, dir=direction) }}">📥 导出 Excel</a>
+<a class="btn btn-primary btn-sm" href="{{ url_for('students.create') }}">+ 新增学员</a>
+{% endblock %}
+
+{% block content %}
+{% set export_qs = 'sort=' ~ sort ~ '&dir=' ~ direction ~ ('&q=' ~ q if q else '') ~ ('&status=' ~ status if status else '') %}
+
+{# 可排序列头:点击切换 asc/desc,保持当前筛选 #}
+{% macro sort_th(key, label, num=False) -%}
+  {%- set new_dir = 'asc' if (sort == key and direction == 'desc') else 'desc' -%}
+  {%- set qs = 'sort=' ~ key ~ '&dir=' ~ new_dir ~ ('&q=' ~ q if q else '') ~ ('&status=' ~ status if status else '') -%}
+  <th{% if num %} class="num"{% endif %}>
+    <a href="?{{ qs }}" style="color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+      {{ label }}
+      <span style="font-size:11px;color:{% if sort == key %}#4f46e5{% else %}#cbd5e1{% endif %};">
+        {%- if sort == key -%}
+          {{ '▲' if direction == 'asc' else '▼' }}
+        {%- else -%}
+          ⇅
+        {%- endif -%}
+      </span>
+    </a>
+  </th>
+{%- endmacro %}
+
+<div class="card">
+  <div class="filter-bar">
+    <form method="get">
+      <input type="text" name="q" value="{{ q }}" placeholder="搜索姓名/编号/电话/学校">
+      <select name="status">
+        <option value="">全部状态</option>
+        <option value="active" {% if status == 'active' %}selected{% endif %}>在读</option>
+        <option value="suspended" {% if status == 'suspended' %}selected{% endif %}>休学</option>
+        <option value="graduated" {% if status == 'graduated' %}selected{% endif %}>结业</option>
+        <option value="refunded" {% if status == 'refunded' %}selected{% endif %}>已退费</option>
+      </select>
+      <input type="hidden" name="sort" value="{{ sort }}">
+      <input type="hidden" name="dir" value="{{ direction }}">
+      <button class="btn btn-sm" type="submit">查询</button>
+    </form>
+  </div>
+
+  {% if students %}
+  <table class="table">
+    <thead>
+      <tr>
+        {{ sort_th('code', '编号') }}
+        {{ sort_th('name', '姓名') }}
+        <th>性别</th>
+        {{ sort_th('school', '学校/年级') }}
+        <th>电话</th>
+        {{ sort_th('status', '状态') }}
+        {{ sort_th('remaining_hours', '剩余课时', True) }}
+        {{ sort_th('used_value', '已用金额', True) }}
+        {{ sort_th('enrollment_date', '入学日期') }}
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in students %}
+      <tr>
+        <td class="muted">{{ s.code }}</td>
+        <td><a href="{{ url_for('students.detail', sid=s.id) }}"><strong>{{ s.name }}</strong></a></td>
+        <td>{{ {'male':'男','female':'女','unknown':'-'}.get(s.gender, '-') }}</td>
+        <td>{{ s.school or '-' }} / {{ s.grade or '-' }}</td>
+        <td>{{ s.phone or '-' }}</td>
+        <td>
+          {% if s.status == 'active' %}<span class="badge badge-success">{{ s.status_label }}</span>
+          {% elif s.status == 'refunded' %}<span class="badge badge-danger">{{ s.status_label }}</span>
+          {% elif s.status == 'graduated' %}<span class="badge badge-info">{{ s.status_label }}</span>
+          {% else %}<span class="badge">{{ s.status_label }}</span>{% endif %}
+        </td>
+        <td class="num">
+          {% set rh = s.total_remaining_hours %}
+          {% if rh == 0 %}<span class="muted">0</span>
+          {% elif rh <= 3 %}<span class="badge badge-warning">{{ rh }}</span>
+          {% else %}<strong>{{ rh }}</strong>{% endif %}
+        </td>
+        <td class="num">
+          {% set uv = used_value_map.get(s.id, 0) %}
+          {% if uv > 0 %}<span style="color:#7c3aed">¥{{ '%.0f'|format(uv) }}</span>{% else %}<span class="muted">-</span>{% endif %}
+        </td>
+        <td>{{ s.enrollment_date | date }}</td>
+        <td>
+          <a class="btn btn-sm" href="{{ url_for('students.edit', sid=s.id) }}">编辑</a>
+          <form method="post" action="{{ url_for('students.delete', sid=s.id) }}" style="display:inline" onsubmit="return confirm('确认删除学员「{{ s.name }}」?{{ '\n\n该学员有报名记录时会拒绝删除' if s.enrollments.count() > 0 else '' }}')">
+            <button class="btn btn-sm btn-danger" type="submit" {% if s.enrollments.count() > 0 %}disabled title="有报名记录,不能删除"{% endif %}>删除</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">还没有学员,点击右上角"新增学员"开始吧</div>
+  {% endif %}
+</div>
+{% endblock %}

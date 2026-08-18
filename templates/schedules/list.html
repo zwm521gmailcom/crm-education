@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}排期与考勤 - 教培 CRM{% endblock %}
+{% block page_title %}排期与考勤{% endblock %}
+{% block topbar_actions %}
+<a class="btn btn-sm" href="{{ url_for('calendar.view', angle=view) }}">📅 日历视图</a>
+<a class="btn btn-sm" href="{{ url_for('exports.schedules_xlsx', view=view, range=range, course_id=course_id, status=status, student_id=student_id|default(0), attendance=attendance|default('')) }}">📥 导出Excel</a>
+<a class="btn btn-primary btn-sm" href="{{ url_for('schedules.create') }}">+ 新排期</a>
+{% endblock %}
+
+{% block content %}
+{# ---------- 视图切换 tab ---------- #}
+<div class="tabs" style="margin-bottom: 16px;">
+  {% set base_args = {} %}
+  <a class="tab {% if view == 'course' %}active{% endif %}"
+     href="{{ url_for('schedules.list_view', view='course', range=range, course_id=course_id, status=status) }}">
+     🗂️ 课程视角
+  </a>
+  <a class="tab {% if view == 'student' %}active{% endif %}"
+     href="{{ url_for('schedules.list_view', view='student', range=range, course_id=course_id, status=status, student_id=student_id, attendance=attendance) }}">
+     🧑‍🎓 学员视角
+  </a>
+</div>
+
+<div class="card">
+  <div class="filter-bar">
+    <form method="get">
+      <input type="hidden" name="view" value="{{ view }}">
+
+      <select name="range">
+        <option value="all" {% if range == 'all' %}selected{% endif %}>全部</option>
+        <option value="upcoming" {% if range == 'upcoming' %}selected{% endif %}>未来</option>
+        <option value="past" {% if range == 'past' %}selected{% endif %}>已过</option>
+      </select>
+
+      <select name="course_id">
+        <option value="">全部课程</option>
+        {% for c in courses %}
+        <option value="{{ c.id }}" {% if course_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+
+      <select name="status">
+        <option value="">全部状态</option>
+        <option value="scheduled">计划中</option>
+        <option value="ongoing">进行中</option>
+        <option value="completed">已完成</option>
+        <option value="cancelled">已取消</option>
+      </select>
+
+      {% if view == 'student' %}
+      <select name="student_id">
+        <option value="">全部学员</option>
+        {% for st in students %}
+        <option value="{{ st.id }}" {% if student_id == st.id %}selected{% endif %}>{{ st.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="attendance">
+        <option value="">全部出勤</option>
+        <option value="present">出勤</option>
+        <option value="makeup">补课</option>
+        <option value="absent">缺席</option>
+        <option value="leave">请假</option>
+      </select>
+      {% endif %}
+
+      <button class="btn btn-sm" type="submit">查询</button>
+    </form>
+  </div>
+
+  {% if view == 'student' %}
+    {# ---------- 学员视角 ---------- #}
+    {% if rows %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>开始</th><th>结束</th>
+          <th>学员</th><th>课程</th>
+          <th>老师</th><th>教室</th>
+          <th class="num">课时/节</th>
+          <th>出勤</th><th>扣课</th>
+          <th>排期状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s, a, e, st in rows %}
+        <tr>
+          <td><a href="{{ url_for('schedules.detail', sid=s.id) }}">{{ s.start_time | dt }}</a></td>
+          <td>{{ s.end_time | dt }}</td>
+          <td><a href="{{ url_for('students.detail', sid=st.id) }}">{{ st.name }}</a></td>
+          <td>{{ s.course.name }}</td>
+          <td>{{ s.teacher or '-' }}</td>
+          <td>{{ s.classroom or '-' }}</td>
+          <td class="num">{{ s.hours_per_session }}</td>
+          <td>
+            {% if a.attendance == 'present' %}<span class="badge badge-success">出勤</span>
+            {% elif a.attendance == 'absent' %}<span class="badge badge-danger">缺席</span>
+            {% elif a.attendance == 'makeup' %}<span class="badge badge-info">补课</span>
+            {% elif a.attendance == 'leave' %}<span class="badge badge-warning">请假</span>
+            {% else %}<span class="badge">{{ a.attendance }}</span>{% endif %}
+          </td>
+          <td class="num">
+            {% if a.attendance in ('present', 'makeup') %}
+              <strong>{{ a.hours_used }}</strong>
+            {% else %}-{% endif %}
+          </td>
+          <td>
+            {% if s.status == 'scheduled' %}<span class="badge badge-success">{{ s.status_label }}</span>
+            {% elif s.status == 'completed' %}<span class="badge badge-info">{{ s.status_label }}</span>
+            {% elif s.status == 'cancelled' %}<span class="badge badge-danger">{{ s.status_label }}</span>
+            {% else %}<span class="badge">{{ s.status_label }}</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">还没有排期/出勤记录</div>
+    {% endif %}
+  {% else %}
+    {# ---------- 课程视角 ---------- #}
+    {% if schedules %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>开始</th><th>结束</th><th>课程</th>
+          <th>老师</th><th>教室</th>
+          <th class="num">课时/节</th>
+          <th class="num">已上</th>
+          <th>状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in schedules %}
+        <tr>
+          <td><a href="{{ url_for('schedules.detail', sid=s.id) }}">{{ s.start_time | dt }}</a></td>
+          <td>{{ s.end_time | dt }}</td>
+          <td>{{ s.course.name }}</td>
+          <td>{{ s.teacher or '-' }}</td>
+          <td>{{ s.classroom or '-' }}</td>
+          <td class="num">{{ s.hours_per_session }}</td>
+          <td class="num">{{ s.attended_count }} / {{ s.max_students }}</td>
+          <td>
+            {% if s.status == 'scheduled' %}<span class="badge badge-success">{{ s.status_label }}</span>
+            {% elif s.status == 'completed' %}<span class="badge badge-info">{{ s.status_label }}</span>
+            {% elif s.status == 'cancelled' %}<span class="badge badge-danger">{{ s.status_label }}</span>
+            {% else %}<span class="badge">{{ s.status_label }}</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">还没有排期</div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
