@@ -439,11 +439,9 @@ input, select, textarea {
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
+/* 平板(<=900px):只调整 layout,sidebar 保持完整 220px(避免缩窄后无文字提示) */
 @media (max-width: 900px) {
   .two-col, .form-grid { grid-template-columns: 1fr; }
-  .sidebar { width: 64px; }
-  .nav-item span:not(:first-child) { display: none; }
-  .nav-group, .brand-text, .sidebar-footer { display: none; }
 }
 
 /* 中间档(601-900px):tablet 风格,stat-grid 2 列 */
