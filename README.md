@@ -23,130 +23,97 @@
 
 ## 🔐 默认账号
 
-启动后用 `admin` / `admin123` 登录。建议首次登录后修改 `config.py` 里的 `SECRET_KEY`,并通过 `init_db.py --reset` 重建时改密码(或直接编辑数据库)。
+启动后用 `admin` / `admin123` 登录。**首次登录后建议**:
+1. 修改 `config.py` 里的 `SECRET_KEY`(生产前必须)
+2. 在 admin 后台修改 admin 密码
 
-## 🚀 启动方法
+## 🚀 快速开始
 
-### 1. 安装 Python(本机还没装)
+### 三种启动方式,任选其一
 
-本机是 Windows,推荐用 winget 一键装:
+#### 方式 A:一键脚本(推荐,适合所有人)
 
-```powershell
-winget install -e --id Python.Python.3.12
+**macOS / Linux**:
+```bash
+bash start.sh
 ```
 
-装完关掉 PowerShell 重开,验证:
+**Windows**:
+双击 `start_crm.bat`
 
-```powershell
-python --version
-pip --version
+脚本会:① 创建/激活 venv → ② 装依赖 → ③ 启动 `run.py`(**自动 init 数据库 + 自动开浏览器**)
+
+#### 方式 B:Makefile(macOS / Linux 程序员)
+
+```bash
+make install      # 装依赖(自动建 venv)
+make run          # 启动(run.py 会自动 init)
+make init         # 手动初始化(带示例数据)
+make init-empty   # 初始化(不带示例)
+make reset        # ⚠ 删库重建
+make backup       # 手动备份
+make stop         # 停服务
 ```
 
-### 2. 装依赖
+#### 方式 C:手动启动(全平台)
 
-```powershell
-cd C:\Users\Nancy\.minimax-agent-cn\projects\crm-education
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+```bash
+# 1. 装依赖
+python3 -m venv venv
+source venv/bin/activate              # macOS/Linux
+# .\venv\Scripts\Activate.ps1        # Windows PowerShell
 pip install -r requirements.txt
+
+# 2. 启动(run.py 会自动检测 db,不存在则自动 init)
+python3 run.py
 ```
 
-> 第一次用 venv,如果提示"无法加载脚本,因为在此系统上禁止运行脚本",先执行:
-> `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
+### 默认行为
 
-### 3. 初始化数据库(可选,带示例数据)
+- **端口**:`5050`(`PORT=5050 python3 run.py` 可改)
+- **数据库**:`instance/crm.db`(`.gitignore` 已排除,不会入库)
+- **自动初始化**:`run.py` 检测到 db 不存在时,**自动调用** `init_db.py` 写入示例数据
+- **自动开浏览器**:`run.py` 启动后自动打开(传 `--no-browser` 关闭)
 
-```powershell
-python init_db.py
+### 从 GitHub 拉取后跑起来
+
+```bash
+git clone https://github.com/你的用户名/crm-education.git
+cd crm-education
+bash start.sh              # 或 make install && make run
+# 浏览器自动开 → admin / admin123 登录
 ```
-
-参数:
-- `python init_db.py` —— 建表 + 写示例数据 + 创建默认管理员
-- `python init_db.py --no-seed` —— 只建表和默认账号,不要示例
-- `python init_db.py --reset` —— 删除旧库重建(!! 慎用,丢数据 !!)
-
-### 4. 启动服务
-
-```powershell
-python run.py
-```
-
-浏览器打开:<http://127.0.0.1:5000> → 用 `admin` / `admin123` 登录
-
-## 🚀 启动方法
-
-### 1. 安装 Python(本机还没装)
-
-本机是 Windows,推荐用 winget 一键装:
-
-```powershell
-winget install -e --id Python.Python.3.12
-```
-
-装完关掉 PowerShell 重开,验证:
-
-```powershell
-python --version
-pip --version
-```
-
-### 2. 装依赖
-
-```powershell
-cd C:\Users\Nancy\.minimax-agent-cn\projects\crm-education
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-> 第一次用 venv,如果提示"无法加载脚本,因为在此系统上禁止运行脚本",先执行:
-> `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
-
-### 3. 初始化数据库(可选,带示例数据)
-
-```powershell
-python init_db.py
-```
-
-参数:
-- `python init_db.py` —— 建表 + 写示例数据(默认)
-- `python init_db.py --no-seed` —— 只建表,不要示例
-- `python init_db.py --reset` —— 删除旧库重建(!! 慎用,丢数据 !!)
-
-### 4. 启动服务
-
-```powershell
-python run.py
-```
-
-浏览器打开:<http://127.0.0.1:5000>
 
 ## 📁 目录结构
 
 ```
 crm-education/
 ├── app.py              # Flask 工厂 + 入口
-├── run.py              # 启动脚本
+├── run.py              # 启动脚本 (auto-init + auto-open browser)
+├── start.sh            # macOS/Linux 一键启动
+├── start_crm.bat       # Windows 一键启动
+├── Makefile            # make run/init/reset/backup/stop
 ├── config.py           # 配置
 ├── extensions.py       # SQLAlchemy 实例
-├── models.py           # 数据模型(8 张表)
-├── init_db.py          # 建表 + 示例数据
+├── models.py           # 数据模型(9 张表,含 HourAdjustment 课时流水)
+├── init_db.py          # 建表 + 示例数据 + 默认管理员
+├── backup_now.py       # 手动备份脚本
 ├── requirements.txt
 ├── README.md
-├── instance/
-│   └── crm.db          # SQLite 数据库(自动生成)
+├── .gitignore          # 排除 db/venv/缓存/日志
+├── instance/           # 运行时数据(不进 git)
+│   ├── crm.db          # SQLite 数据库(自动生成)
+│   ├── backups/        # 自动备份
+│   └── *.log
 ├── routes/             # 蓝图
-│   ├── dashboard.py
-│   ├── students.py
-│   ├── courses.py
-│   ├── enrollments.py
-│   ├── schedules.py
-│   ├── payments.py
-│   └── refunds.py
+│   ├── auth.py dashboard.py students.py courses.py
+│   ├── enrollments.py schedules.py calendar.py
+│   ├── payments.py refunds.py exports.py reports.py admin.py
 ├── templates/          # Jinja2 模板
 │   ├── base.html
 │   ├── dashboard.html
-│   ├── students/ courses/ enrollments/ schedules/ payments/ refunds/
+│   └── auth/ admin/ students/ courses/ enrollments/
+│       schedules/ payments/ refunds/ reports/
 └── static/
     └── css/style.css
 ```
@@ -161,6 +128,8 @@ crm-education/
 - **ScheduleAttendance** 出勤(排期↔报名,扣课时)
 - **Payment** 收款(学员/报名/金额/方式/时间)
 - **Refund** 退费(学员/报名/金额/原因/方式)
+- **HourAdjustment** 课时手工调整流水(赠送/扣减)
+- **User** 管理员账号(支持多管理员 + bcrypt 密码)
 
 > 课时计算规则:
 > - `Enrollment.used_hours` 在每次"出勤/补课"时累加,删除会回退
@@ -184,17 +153,19 @@ crm-education/
 - [x] 学员课时流水 ✅
 - [x] 多管理员 + 登录密码 ✅
 - [x] 课表日历视图 ✅
+- [x] 移动端自适应(响应式 CSS)✅
 - [ ] 学员请假补课自动排期
-- [ ] 微信小程序家长端
 - [ ] 排期冲突检测(同一老师同时段不能排两节课)
+- [ ] 数据看板图表(替代当前纯数字)
 
 ## ❓ 故障排查
 
 - **打开页面 500 错误** —— 看 `instance/crm.db` 是否被其他程序占用,或检查 `pip install` 是否完整
 - **数据库被锁** —— 杀掉所有 Python 进程,或重启电脑
-- **中文乱码** —— 用 `python` (而非 `python3`),Python 3.7+ 默认 UTF-8
-- **端口被占** —— 修改 `run.py` 里 `port=5000` 改成 `port=5001`
-- **忘记密码** —— 用 SQLite 工具打开 `instance/crm.db`,在 users 表里手动改 password_hash 字段;或者重新 init_db(丢数据)
+- **中文乱码** —— Python 3.7+ 默认 UTF-8,如乱码检查 `run.py` 启动时的 locale
+- **端口被占** —— `PORT=5051 python3 run.py` 换端口;或 `make stop` 停掉
+- **忘记密码** —— 用 SQLite 工具打开 `instance/crm.db`,在 users 表里手动改 password_hash 字段;或 `python3 init_db.py --reset` 重建(丢数据)
+- **mac 上 5000 端口被 ControlCe 占用** —— run.py 默认 5050,已绕开
 
 ## 📜 License
 
