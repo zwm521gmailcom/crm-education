@@ -21,6 +21,24 @@
 | 📥 Excel 导出 | 学员/报名/收款/退费 一键导出 xlsx |
 | 🔍 筛选 | 学员/课程/报名都支持搜索 + 状态过滤 |
 
+## 📸 预览
+
+### 桌面端 — 仪表盘
+
+![Dashboard Desktop](docs/screenshots/dashboard-desktop.png)
+
+### 移动端 — 响应式适配(< 600px 自动变抽屉式侧边栏)
+
+![Dashboard Mobile](docs/screenshots/dashboard-mobile.png)
+
+### 学员管理
+
+![Students List](docs/screenshots/students-list.png)
+
+### 排期日历(周视图)
+
+![Schedule Calendar](docs/screenshots/schedule-calendar.png)
+
 ## 🔐 默认账号
 
 启动后用 `admin` / `admin123` 登录。**首次登录后建议**:
